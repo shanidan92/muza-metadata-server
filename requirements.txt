@@ -1,0 +1,6 @@
+Flask
+graphene
+gunicorn
+setuptools
+graphql-core
+graphql-server
