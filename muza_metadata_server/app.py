@@ -20,7 +20,7 @@ def create_app(config_override=None) -> Flask:
     # GraphQL endpoint
     @app.route("/graphql", methods=["GET", "POST"])
     def graphql():
-        return handle_graphql_request(app.schema, app.db)
+        return handle_graphql_request(app.schema, app.db, config)
 
     # Health check endpoint
     @app.route("/")

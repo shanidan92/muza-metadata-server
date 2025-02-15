@@ -2,7 +2,7 @@ from flask import request, jsonify
 import json
 
 
-def handle_graphql_request(schema, db):
+def handle_graphql_request(schema, db, config):
     """Handle both GET and POST GraphQL requests"""
     try:
         # Get query and variables based on request method
@@ -25,7 +25,7 @@ def handle_graphql_request(schema, db):
             query,
             variable_values=variables,
             operation_name=operation_name,
-            context_value={"db": db},
+            context_value={"db": db, "config": config},
         )
 
         if result.errors:

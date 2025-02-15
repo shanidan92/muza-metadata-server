@@ -17,6 +17,7 @@ def run_hook(hook_command, data):
     try:
         json_str = json.dumps(data)
         subprocess.run([hook_command, json_str], check=True)
+        logging.info(f"Hook command '{hook_command}' executed successfully")
     except subprocess.CalledProcessError as e:
         logging.error(f"Hook command failed with exit code {e.returncode}")
     except Exception as e:

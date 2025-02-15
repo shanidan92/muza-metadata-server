@@ -8,6 +8,7 @@ A GraphQL server for managing music track metadata.
 - CQRS pattern (append-only) API to simplify conflict resolution and concurrency issues 
 - SQLite database for data storage
 - SSL support for secure communication
+- Post-insert hooks for event-driven integrations and data synchronization
 
 ## Installation
 
@@ -48,6 +49,18 @@ The server can be configured using environment variables or command-line argumen
 - `PORT`: Server port (default: 5000)
 - `DB_PATH`: SQLite database path (default: music.db)
 - `DEBUG`: Enable debug mode (default: false)
+- `HOOK_COMMAND`: Command to execute after successful track insertion (optional)
+
+## Hooks
+
+The server supports post-insert hooks that are executed after a track is successfully added to the database. This can be useful for:
+
+- Forwarding data to other servers
+- Triggering external processes
+- Implementing event-driven architectures
+- Synchronizing multiple Muza instances
+
+For examples and more information about hooks, check out the [playground directory](playground/README_hooks.md).
 
 ## GraphQL API
 
