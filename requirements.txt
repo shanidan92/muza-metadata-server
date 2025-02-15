@@ -4,3 +4,4 @@ gunicorn
 setuptools
 graphql-core
 graphql-server
+black

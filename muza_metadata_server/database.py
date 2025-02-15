@@ -4,6 +4,7 @@ from typing import Dict
 
 logger = logging.getLogger(__name__)
 
+
 class Database:
     def __init__(self, db_path: str):
         self.db_path = db_path
@@ -15,7 +16,7 @@ class Database:
         return conn
 
     def init_db(self):
-        with open('schema.sql') as f:
+        with open("schema.sql") as f:
             schema = f.read()
             with self.get_connection() as conn:
                 conn.executescript(schema)
@@ -23,20 +24,22 @@ class Database:
     def insert_track(self, track_data: Dict) -> Dict:
         """
         Insert a track if it doesn't exist.
-        
+
         Args:
             track_data: Dictionary containing track information
-            
+
         Returns:
             Dict with the inserted track data
-            
+
         Raises:
             ValueError: If required fields are missing or if UUID already exists
             sqlite3.Error: If there's a database error
         """
-        required_fields = ['uuid', 'song_title']
-        
-        missing_fields = [field for field in required_fields if not track_data.get(field)]
+        required_fields = ["uuid", "song_title"]
+
+        missing_fields = [
+            field for field in required_fields if not track_data.get(field)
+        ]
         if missing_fields:
             error_msg = f"Missing required fields: {', '.join(missing_fields)}"
             logger.error(error_msg)
@@ -46,11 +49,13 @@ class Database:
         cursor = conn.cursor()
 
         sanitized_data = track_data.copy()
-        sanitized_data.pop('id', None)
+        sanitized_data.pop("id", None)
 
         try:
             # Check if track with UUID already exists
-            cursor.execute("SELECT id FROM music_tracks WHERE uuid = ?", (sanitized_data["uuid"],))
+            cursor.execute(
+                "SELECT id FROM music_tracks WHERE uuid = ?", (sanitized_data["uuid"],)
+            )
             if cursor.fetchone():
                 error_msg = f"Track with UUID {sanitized_data['uuid']} already exists"
                 logger.error(error_msg)
@@ -75,7 +80,7 @@ class Database:
             raise
         finally:
             conn.close()
-                
+
     def search_tracks(
         self,
         title_contains=None,
@@ -88,7 +93,7 @@ class Database:
         min_year_recorded=None,
         max_year_recorded=None,
         min_year_released=None,
-        max_year_released=None
+        max_year_released=None,
     ):
         query = "SELECT * FROM music_tracks"
         conditions = []

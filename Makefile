@@ -25,6 +25,8 @@ help:
 	@echo "  make container-ssl Run container with SSL"
 	@echo "  make container-push Push container to registry"
 	@echo "  make container-clean Remove container image"
+	@echo "  make format        Format Python code using black"
+	@echo "  make lint          Check Python code formatting using black"
 
 .PHONY: venv
 venv:
@@ -108,3 +110,13 @@ container-push:
 .PHONY: container-clean
 container-clean:
 	$(CONTAINER_ENGINE) rmi -f $(REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)
+
+.PHONY: format
+format:
+	. $(VENV_DIR)/bin/activate && \
+	black .
+
+.PHONY: lint
+lint:
+	. $(VENV_DIR)/bin/activate && \
+	black --check .
