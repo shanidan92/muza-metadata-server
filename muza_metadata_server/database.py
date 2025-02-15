@@ -6,6 +6,10 @@ logger = logging.getLogger(__name__)
 
 
 class Database:
+    """
+    Database handler class for music tracks metadata.
+    """
+
     def __init__(self, db_path: str):
         self.db_path = db_path
         self.init_db()
@@ -16,6 +20,16 @@ class Database:
         return conn
 
     def init_db(self):
+        """
+        Initialize the database schema.
+        
+        Reads the schema from 'schema.sql' file and executes it to create
+        the necessary tables if they don't exist.
+        
+        Raises:
+            FileNotFoundError: If schema.sql is not found
+            sqlite3.Error: If there's an error executing the schema
+        """
         with open("schema.sql") as f:
             schema = f.read()
             with self.get_connection() as conn:
@@ -23,13 +37,16 @@ class Database:
 
     def insert_track(self, track_data: Dict) -> Dict:
         """
-        Insert a track if it doesn't exist.
+        Insert a new track into the database.
 
         Args:
-            track_data: Dictionary containing track information
+            track_data (Dict): Dictionary containing track information including:
+                - uuid (str): Unique identifier for the track
+                - song_title (str): Title of the song
+                - Optional fields: band_name, album_title, label, etc.
 
         Returns:
-            Dict with the inserted track data
+            Dict: The inserted track data including the generated database ID
 
         Raises:
             ValueError: If required fields are missing or if UUID already exists
@@ -95,6 +112,28 @@ class Database:
         min_year_released=None,
         max_year_released=None,
     ):
+        """
+        Search for tracks based on multiple criteria.
+
+        Args:
+            title_contains (str, optional): Partial match for song title
+            band_name_contains (str, optional): Partial match for band name
+            album_title_contains (str, optional): Partial match for album title
+            label_contains (str, optional): Partial match for label name
+            artist_main_contains (str, optional): Partial match for main artist
+            other_artist_contains (str, optional): Partial match for other artists
+            composer_contains (str, optional): Partial match for composer name
+            min_year_recorded (int, optional): Minimum year recorded
+            max_year_recorded (int, optional): Maximum year recorded
+            min_year_released (int, optional): Minimum year released
+            max_year_released (int, optional): Maximum year released
+
+        Returns:
+            List[Dict]: List of tracks matching the search criteria
+
+        Raises:
+            sqlite3.Error: If there's a database error
+        """
         query = "SELECT * FROM music_tracks"
         conditions = []
         params = []
@@ -159,6 +198,15 @@ class Database:
             conn.close()
 
     def fetch_all_tracks(self):
+        """
+        Retrieve all tracks from the database.
+
+        Returns:
+            List[Dict]: List of all tracks in the database
+
+        Raises:
+            sqlite3.Error: If there's a database error
+        """
         conn = self.get_connection()
         cursor = conn.cursor()
         try:
@@ -172,6 +220,18 @@ class Database:
             conn.close()
 
     def fetch_track_by_id(self, track_id):
+        """
+        Retrieve a specific track by its ID.
+
+        Args:
+            track_id (int): The ID of the track to retrieve
+
+        Returns:
+            Dict: Track data if found, None otherwise
+
+        Raises:
+            sqlite3.Error: If there's a database error
+        """
         conn = self.get_connection()
         cursor = conn.cursor()
         try:

@@ -74,6 +74,9 @@ class CreateMusicTrack(graphene.Mutation):
 
 
 class Query(graphene.ObjectType):
+    """
+    Query for music tracks.
+    """
     all_tracks = graphene.List(MusicTrackType)
     search_tracks = graphene.List(
         MusicTrackType,
