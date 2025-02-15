@@ -22,10 +22,10 @@ class Database:
     def init_db(self):
         """
         Initialize the database schema.
-        
+
         Reads the schema from 'schema.sql' file and executes it to create
         the necessary tables if they don't exist.
-        
+
         Raises:
             FileNotFoundError: If schema.sql is not found
             sqlite3.Error: If there's an error executing the schema
