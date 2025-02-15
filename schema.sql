@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS music_tracks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    uuid TEXT UNIQUE,          -- field for global uniqueness
+    uuid TEXT UNIQUE,          -- field for distributed db uniqueness
     original_uuid TEXT,        -- optional reference to an updated original track's UUID (for audit trail purposes)
     album_cover TEXT,          -- e.g. URL or file path for album cover
     album_title TEXT,          -- e.g. "Revolver"

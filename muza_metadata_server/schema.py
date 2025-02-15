@@ -2,6 +2,7 @@ import uuid
 import logging
 from datetime import datetime, timezone
 import graphene
+import sqlite3
 
 class MusicTrackType(graphene.ObjectType):
     id = graphene.Int()
@@ -59,15 +60,14 @@ class CreateMusicTrack(graphene.Mutation):
         if "uuid" not in kwargs or not kwargs["uuid"]:
             kwargs["uuid"] = str(uuid.uuid4())
         
-        # Set created_at to the current time (UTC) in ISO8601
         kwargs["created_at"] = datetime.now(timezone.utc).isoformat() + "Z"
 
-        track_data = db.insert_track(kwargs)
-        if track_data is None:
-            logging.error("Failed to insert track into database")
+        try:
+            track_data = db.insert_track(kwargs)
+            return CreateMusicTrack(ok=True, track=track_data)
+        except (ValueError, sqlite3.Error) as e:
+            logging.error(f"Failed to create track: {str(e)}")
             return CreateMusicTrack(ok=False, track=None)
-            
-        return CreateMusicTrack(ok=True, track=track_data)
 
 class Query(graphene.ObjectType):
     all_tracks = graphene.List(MusicTrackType)
@@ -89,7 +89,11 @@ class Query(graphene.ObjectType):
 
     def resolve_all_tracks(self, info):
         db = info.context.get('db')
-        return db.fetch_all_tracks()
+        try:
+            return db.fetch_all_tracks()
+        except sqlite3.Error as e:
+            logging.error(f"Database error in resolve_all_tracks: {str(e)}")
+            return []
 
     def resolve_search_tracks(
         self,
@@ -107,19 +111,23 @@ class Query(graphene.ObjectType):
         max_year_released=None
     ):
         db = info.context.get('db')
-        return db.search_tracks(
-            title_contains=title_contains,
-            band_name_contains=band_name_contains,
-            album_title_contains=album_title_contains,
-            label_contains=label_contains,
-            artist_main_contains=artist_main_contains,
-            other_artist_contains=other_artist_contains,
-            composer_contains=composer_contains,
-            min_year_recorded=min_year_recorded,
-            max_year_recorded=max_year_recorded,
-            min_year_released=min_year_released,
-            max_year_released=max_year_released
-        )
+        try:
+            return db.search_tracks(
+                title_contains=title_contains,
+                band_name_contains=band_name_contains,
+                album_title_contains=album_title_contains,
+                label_contains=label_contains,
+                artist_main_contains=artist_main_contains,
+                other_artist_contains=other_artist_contains,
+                composer_contains=composer_contains,
+                min_year_recorded=min_year_recorded,
+                max_year_recorded=max_year_recorded,
+                min_year_released=min_year_released,
+                max_year_released=max_year_released
+            )
+        except sqlite3.Error as e:
+            logging.error(f"Database error in resolve_search_tracks: {str(e)}")
+            return []
 
 class Mutation(graphene.ObjectType):
     create_music_track = CreateMusicTrack.Field()

@@ -14,11 +14,10 @@ REGISTRY := quay.io/yaacov
 .PHONY: help
 help:
 	@echo "Available targets:"
-	@echo "  make venv          Create a new Python virtual environment"
 	@echo "  make install       Install dependencies into the virtual environment"
+	@echo "  make run-dev       Run the development server"
 	@echo "  make run           Run the production server (no SSL)"
 	@echo "  make run-ssl       Run the production server with SSL"
-	@echo "  make run-dev       Run the development server"
 	@echo "  make clean         Remove build artifacts and virtual environment"
 	@echo "  make certs         Generate self-signed SSL certificates"
 	@echo "  make container     Build container image"
@@ -36,18 +35,29 @@ install: venv
 	. $(VENV_DIR)/bin/activate && \
 	$(PIP) install -r requirements.txt
 
+
+.PHONY: run-dev
+run-dev:
+	. $(VENV_DIR)/bin/activate && \
+	${PYTHON} run_dev.py $(ARGS)
+
 .PHONY: run
 run:
 	./run.sh
 
 .PHONY: run-ssl
 run-ssl:
+	@if [ ! -f "$(SSL_CERT)" ]; then \
+		echo "Error: SSL certificate file $(SSL_CERT) not found"; \
+		echo "Run 'make certs' to generate SSL certificates"; \
+		exit 1; \
+	fi
+	@if [ ! -f "$(SSL_KEY)" ]; then \
+		echo "Error: SSL key file $(SSL_KEY) not found"; \
+		echo "Run 'make certs' to generate SSL certificates"; \
+		exit 1; \
+	fi
 	SSL_ENABLE=true SSL_CERT=$(SSL_CERT) SSL_KEY=$(SSL_KEY) ./run.sh
-
-.PHONY: run-dev
-run-dev:
-	. $(VENV_DIR)/bin/activate && \
-	${PYTHON} run_dev.py $(ARGS)
 
 .PHONY: clean
 clean:

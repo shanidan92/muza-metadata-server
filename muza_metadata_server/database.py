@@ -1,6 +1,6 @@
 import sqlite3
 import logging
-from typing import Dict, Optional
+from typing import Dict
 
 logger = logging.getLogger(__name__)
 
@@ -20,20 +20,41 @@ class Database:
             with self.get_connection() as conn:
                 conn.executescript(schema)
 
-    def insert_track(self, track_data: Dict) -> Optional[Dict]:
-        """Insert a track if it doesn't exist. Returns the track data if inserted, None if exists."""
+    def insert_track(self, track_data: Dict) -> Dict:
+        """
+        Insert a track if it doesn't exist.
+        
+        Args:
+            track_data: Dictionary containing track information
+            
+        Returns:
+            Dict with the inserted track data
+            
+        Raises:
+            ValueError: If required fields are missing or if UUID already exists
+            sqlite3.Error: If there's a database error
+        """
+        required_fields = ['uuid', 'song_title']
+        
+        missing_fields = [field for field in required_fields if not track_data.get(field)]
+        if missing_fields:
+            error_msg = f"Missing required fields: {', '.join(missing_fields)}"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
         conn = self.get_connection()
         cursor = conn.cursor()
 
-        # Make a copy and remove 'id' to prevent external manipulation
         sanitized_data = track_data.copy()
-        sanitized_data.pop('id', None)  # Remove 'id' if it exists
+        sanitized_data.pop('id', None)
 
         try:
+            # Check if track with UUID already exists
             cursor.execute("SELECT id FROM music_tracks WHERE uuid = ?", (sanitized_data["uuid"],))
             if cursor.fetchone():
-                logger.debug(f"Track with UUID {sanitized_data['uuid']} already exists")
-                return None
+                error_msg = f"Track with UUID {sanitized_data['uuid']} already exists"
+                logger.error(error_msg)
+                raise ValueError(error_msg)
 
             columns = ", ".join(sanitized_data.keys())
             placeholders = ", ".join(["?"] * len(sanitized_data))
@@ -46,8 +67,12 @@ class Database:
             row_id = cursor.lastrowid
             cursor.execute("SELECT * FROM music_tracks WHERE id = ?", (row_id,))
             row = cursor.fetchone()
-            return dict(row) if row else None
+            return dict(row)
 
+        except (sqlite3.Error, ValueError) as e:
+            logger.error(f"Error in insert_track: {str(e)}")
+            conn.rollback()
+            raise
         finally:
             conn.close()
                 
@@ -122,6 +147,9 @@ class Database:
             cursor.execute(query, params)
             rows = cursor.fetchall()
             return [dict(row) for row in rows]
+        except sqlite3.Error as e:
+            logger.error(f"Database error in search_tracks: {str(e)}")
+            raise
         finally:
             conn.close()
 
@@ -132,6 +160,9 @@ class Database:
             cursor.execute("SELECT * FROM music_tracks")
             rows = cursor.fetchall()
             return [dict(row) for row in rows]
+        except sqlite3.Error as e:
+            logger.error(f"Database error in fetch_all_tracks: {str(e)}")
+            raise
         finally:
             conn.close()
 
@@ -142,5 +173,8 @@ class Database:
             cursor.execute("SELECT * FROM music_tracks WHERE id = ?", (track_id,))
             row = cursor.fetchone()
             return dict(row) if row else None
+        except sqlite3.Error as e:
+            logger.error(f"Database error in fetch_track_by_id: {str(e)}")
+            raise
         finally:
             conn.close()
