@@ -5,6 +5,7 @@ A GraphQL server for managing music track metadata.
 ## Features
 
 - GraphQL API for querying and managing music track metadata
+- CQRS pattern (append-only) API to simplify conflict resolution and concurrency issues 
 - SQLite database for data storage
 - SSL support for secure communication
 
