@@ -142,6 +142,7 @@ The container accepts the following environment variables:
 - `SSL_CERT`: SSL certificate path (default: /app/certs/server.crt)
 - `SSL_KEY`: SSL private key path (default: /app/certs/server.key)
 - `WORKERS`: Number of Gunicorn workers (default: 4)
+- `HOOK_COMMAND`: Command to execute after successful track insertion (optional)
 
 ### Persistent Storage
 
