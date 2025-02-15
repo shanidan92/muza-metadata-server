@@ -53,7 +53,7 @@ The server can be configured using environment variables or command-line argumen
 
 Access the GraphQL playground at `http://localhost:5000/graphql`
 
-### Mutation Examples
+### Basic Examples
 
 1. Create a basic track:
 ```graphql
@@ -74,236 +74,24 @@ mutation {
   }
 }
 ```
-```bash
-curl -X POST http://localhost:5000/graphql \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "query": "mutation { createMusicTrack(songTitle: \"Hey Jude\", artistMain: \"Paul McCartney\", bandName: \"The Beatles\", albumTitle: \"The Beatles (White Album)\", yearReleased: 1968) { ok track { id uuid songTitle } } }"
-  }'
-```
 
-2. Create a detailed track with all fields:
-```graphql
-mutation {
-  createMusicTrack(
-    uuid: "custom-uuid-123"
-    albumCover: "https://example.com/covers/album.jpg"
-    albumTitle: "Abbey Road"
-    label: "Apple Records"
-    labelLogo: "https://example.com/logos/apple.png"
-    bandName: "The Beatles"
-    artistPhoto: "https://example.com/photos/paul.jpg"
-    artistMain: "Paul McCartney"
-    instrument: "Bass, Vocals"
-    otherArtistPlaying: "John Lennon"
-    otherInstrument: "Guitar, Vocals"
-    yearRecorded: 1969
-    yearReleased: 1969
-    songOrder: 1
-    songTitle: "Come Together"
-    composer: "Lennon-McCartney"
-    songFile: "https://example.com/songs/come_together.mp3"
-  ) {
-    ok
-    track {
-      id
-      uuid
-      songTitle
-      createdAt
-    }
-  }
-}
-```
-```bash
-curl -X POST http://localhost:5000/graphql \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "query": "mutation { createMusicTrack(uuid: \"custom-uuid-123\", albumCover: \"https://example.com/covers/album.jpg\", albumTitle: \"Abbey Road\", label: \"Apple Records\", labelLogo: \"https://example.com/logos/apple.png\", bandName: \"The Beatles\", artistPhoto: \"https://example.com/photos/paul.jpg\", artistMain: \"Paul McCartney\", instrument: \"Bass, Vocals\", otherArtistPlaying: \"John Lennon\", otherInstrument: \"Guitar, Vocals\", yearRecorded: 1969, yearReleased: 1969, songOrder: 1, songTitle: \"Come Together\", composer: \"Lennon-McCartney\", songFile: \"https://example.com/songs/come_together.mp3\") { ok track { id uuid songTitle createdAt } } }"
-  }'
-```
-
-### Complex Queries
-
-1. Search tracks with multiple criteria:
+2. Search tracks:
 ```graphql
 {
   searchTracks(
     bandNameContains: "Beatles"
     minYearReleased: 1965
     maxYearReleased: 1970
-    artistMainContains: "lennon"
-  ) {
-    id
-    songTitle
-    artistMain
-    bandName
-    albumTitle
-    yearReleased
-    composer
-    songOrder
-  }
-}
-```
-```bash
-curl -X POST http://localhost:5000/graphql \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "query": "{ searchTracks(bandNameContains: \"Beatles\", minYearReleased: 1965, maxYearReleased: 1970, artistMainContains: \"lennon\") { id songTitle artistMain bandName albumTitle yearReleased composer songOrder } }"
-  }'
-```
-
-2. Full track details query:
-```graphql
-{
-  allTracks {
-    id
-    uuid
-    albumCover
-    albumTitle
-    label
-    labelLogo
-    bandName
-    artistPhoto
-    artistMain
-    instrument
-    otherArtistPlaying
-    otherInstrument
-    yearRecorded
-    yearReleased
-    songOrder
-    songTitle
-    composer
-    songFile
-    createdAt
-  }
-}
-```
-```bash
-curl -X POST http://localhost:5000/graphql \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "query": "{ allTracks { id uuid albumCover albumTitle label labelLogo bandName artistPhoto artistMain instrument otherArtistPlaying otherInstrument yearRecorded yearReleased songOrder songTitle composer songFile createdAt } }"
-  }'
-```
-
-3. Complex search with multiple filters:
-```graphql
-{
-  searchTracks(
-    titleContains: "love"
-    composerContains: "lennon"
-    otherArtistContains: "starr"
-    minYearRecorded: 1960
-    maxYearRecorded: 1969
-    labelContains: "apple"
-  ) {
-    songTitle
-    composer
-    otherArtistPlaying
-    yearRecorded
-    label
-  }
-}
-```
-```bash
-curl -X POST http://localhost:5000/graphql \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "query": "{ searchTracks(titleContains: \"love\", composerContains: \"lennon\", otherArtistContains: \"starr\", minYearRecorded: 1960, maxYearRecorded: 1969, labelContains: \"apple\") { songTitle composer otherArtistPlaying yearRecorded label } }"
-  }'
-```
-
-### Search Examples for Demo Data
-
-1. Search for "Hey Jude":
-```graphql
-{
-  searchTracks(
-    titleContains: "Hey Jude"
-    artistMainContains: "McCartney"
   ) {
     songTitle
     artistMain
     bandName
-    albumTitle
     yearReleased
   }
 }
 ```
-```bash
-curl -X POST http://localhost:5000/graphql \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "query": "{ searchTracks(titleContains: \"Hey Jude\", artistMainContains: \"McCartney\") { songTitle artistMain bandName albumTitle yearReleased } }"
-  }'
-```
 
-2. Find all songs from Abbey Road:
-```graphql
-{
-  searchTracks(
-    albumTitleContains: "Abbey Road"
-    yearReleased: 1969
-  ) {
-    songTitle
-    artistMain
-    otherArtistPlaying
-    instrument
-    otherInstrument
-    composer
-  }
-}
-```
-```bash
-curl -X POST http://localhost:5000/graphql \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "query": "{ searchTracks(albumTitleContains: \"Abbey Road\", minYearReleased: 1969) { songTitle artistMain otherArtistPlaying instrument otherInstrument composer } }"
-  }'
-```
-
-3. Find all Paul McCartney songs:
-```graphql
-{
-  searchTracks(
-    artistMainContains: "McCartney"
-  ) {
-    songTitle
-    albumTitle
-    yearReleased
-    yearRecorded
-  }
-}
-```
-```bash
-curl -X POST http://localhost:5000/graphql \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "query": "{ searchTracks(artistMainContains: \"McCartney\") { songTitle albumTitle yearReleased yearRecorded } }"
-  }'
-```
-
-4. Search for tracks recorded in 1969:
-```graphql
-{
-  searchTracks(
-    yearRecorded: 1969
-  ) {
-    songTitle
-    bandName
-    composer
-    yearRecorded
-    yearReleased
-  }
-}
-```
-```bash
-curl -X POST http://localhost:5000/graphql \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "query": "{ searchTracks(yearRecorded: 1969) { songTitle bandName composer yearRecorded yearReleased } }"
-  }'
-```
+For more complex examples and test data, check out the [playground directory](playground/).
 
 ## Containerization
 
@@ -362,4 +150,3 @@ Pull from registry:
 ```bash
 podman pull quay.io/yaacov/muza-metadata-server:latest
 ```
-````
