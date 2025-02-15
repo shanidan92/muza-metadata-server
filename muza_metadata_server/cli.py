@@ -21,6 +21,12 @@ def parse_args():
     parser.add_argument(
         "--debug", action="store_true", help="Enable debug mode", default=False
     )
+    parser.add_argument(
+        "--hook-command",
+        type=str,
+        default="",
+        help="Command to run after successful insertion (receives JSON string as argument)",
+    )
     return parser.parse_args()
 
 

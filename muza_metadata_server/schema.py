@@ -3,6 +3,7 @@ import logging
 from datetime import datetime, timezone
 import graphene
 import sqlite3
+from .utils import run_hook
 
 
 class MusicTrackType(graphene.ObjectType):
@@ -59,6 +60,7 @@ class CreateMusicTrack(graphene.Mutation):
 
     def mutate(self, info, **kwargs):
         db = info.context.get("db")
+        config = info.context.get("config")
 
         if "uuid" not in kwargs or not kwargs["uuid"]:
             kwargs["uuid"] = str(uuid.uuid4())
@@ -67,6 +69,9 @@ class CreateMusicTrack(graphene.Mutation):
 
         try:
             track_data = db.insert_track(kwargs)
+            if track_data:
+                # Run the hook if insertion was successful
+                run_hook(config.hook_command, track_data)
             return CreateMusicTrack(ok=True, track=track_data)
         except (ValueError, sqlite3.Error) as e:
             logging.error(f"Failed to create track: {str(e)}")

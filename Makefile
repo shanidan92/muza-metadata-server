@@ -13,20 +13,28 @@ REGISTRY := quay.io/yaacov
 
 .PHONY: help
 help:
-	@echo "Available targets:"
-	@echo "  make install       Install dependencies into the virtual environment"
-	@echo "  make run-dev       Run the development server"
-	@echo "  make run           Run the production server (no SSL)"
-	@echo "  make run-ssl       Run the production server with SSL"
-	@echo "  make clean         Remove build artifacts and virtual environment"
-	@echo "  make certs         Generate self-signed SSL certificates"
-	@echo "  make container     Build container image"
-	@echo "  make container-run Run container (no SSL)"
-	@echo "  make container-ssl Run container with SSL"
-	@echo "  make container-push Push container to registry"
-	@echo "  make container-clean Remove container image"
-	@echo "  make format        Format Python code using black"
-	@echo "  make lint          Check Python code formatting using black"
+	@echo "Muza Metadata Server Make Commands"
+	@echo ""
+	@echo "Development Commands:"
+	@echo "  make install        - Install dependencies into the virtual environment"
+	@echo "  make run-dev        - Run the development server"
+	@echo "  make format         - Format Python code using black"
+	@echo "  make lint           - Check Python code formatting using black"
+	@echo ""
+	@echo "Production Commands:"
+	@echo "  make run            - Run the production server (no SSL)"
+	@echo "  make run-ssl        - Run the production server with SSL"
+	@echo "  make certs          - Generate self-signed SSL certificates"
+	@echo ""
+	@echo "Container Commands:"
+	@echo "  make container      - Build container image"
+	@echo "  make container-run  - Run container (no SSL)"
+	@echo "  make container-run-ssl - Run container with SSL"
+	@echo "  make container-push - Push container to registry"
+	@echo "  make container-clean - Remove container image"
+	@echo ""
+	@echo "Cleanup Commands:"
+	@echo "  make clean          - Remove build artifacts and virtual environment"
 
 .PHONY: venv
 venv:
@@ -94,8 +102,8 @@ container-run:
 		-v $(PWD)/data:/data:Z \
 		$(REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)
 
-.PHONY: container-ssl
-container-ssl:
+.PHONY: container-run-ssl
+container-run-ssl:
 	$(CONTAINER_ENGINE) run -it --rm \
 		-p 5443:5000 \
 		-v $(PWD)/data:/data:Z \

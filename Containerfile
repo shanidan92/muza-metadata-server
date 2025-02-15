@@ -34,7 +34,8 @@ ENV PYTHONUNBUFFERED=1 \
     SSL_ENABLE=false \
     SSL_CERT=/app/certs/server.crt \
     SSL_KEY=/app/certs/server.key \
-    DEBUG=false
+    DEBUG=false \
+    HOOK_COMMAND=""
 
 # Default command using Gunicorn with config
 ENTRYPOINT ["./run.sh"]

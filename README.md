@@ -116,7 +116,7 @@ With SSL enabled:
 make certs  # Generate self-signed certificates first
 mkdir data # create a directory for percistant data
 
-make container-ssl
+make container-run-ssl
 ```
 
 ### Container Configuration
@@ -136,17 +136,5 @@ Mount a volume to `/data` to persist the database:
 ```bash
 mkdir data # create a directory for percistant data
 
-podman run -v $(pwd)/data:/data:Z quay.io/yaacov/muza-metadata-server:latest
-```
-
-### Registry
-
-Push to registry:
-```bash
-make container-push
-```
-
-Pull from registry:
-```bash
-podman pull quay.io/yaacov/muza-metadata-server:latest
+podman run -p 5000:5000 -v $(pwd)/data:/data:Z quay.io/yaacov/muza-metadata-server:latest
 ```

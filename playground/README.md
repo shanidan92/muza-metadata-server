@@ -4,9 +4,8 @@ This directory contains examples and test data for the Muza Metadata Server.
 
 ## Prerequisites
 
-- jq - used for formatting the API responses
-  - Install on Fedora: `sudo dnf install jq`
-  - Install on macOS: `brew install jq`
+- jq installed (for JSON processing in the hook script)
+- curl installed
 
 ## Quick Start
 
