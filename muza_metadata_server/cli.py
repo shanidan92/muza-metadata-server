@@ -19,6 +19,11 @@ def parse_args():
         help="Path to the local SQLite DB file (default: music.db)",
     )
     parser.add_argument(
+        "--database-url",
+        type=str,
+        help="Database URL (e.g., sqlite:///music.db, postgresql://user:pass@host/db)",
+    )
+    parser.add_argument(
         "--debug", action="store_true", help="Enable debug mode", default=False
     )
     parser.add_argument(
@@ -38,7 +43,13 @@ def main():
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
-    app = create_app(Config.from_args(args))
+    config = Config.from_args(args)
+    
+    # Override with database-url if provided
+    if hasattr(args, 'database_url') and args.database_url:
+        config.database_url = args.database_url
+
+    app = create_app(config)
     app.run(port=args.port, debug=args.debug)
 
 

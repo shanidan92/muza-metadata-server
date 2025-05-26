@@ -11,7 +11,7 @@ def create_app(config_override=None) -> Flask:
 
     # Initialize core components
     config = config_override if config_override else Config.from_env()
-    db = Database(config.db_path)
+    db = Database(config.database_url)
 
     # Create schema instance
     app.schema = graphene.Schema(query=Query, mutation=Mutation)

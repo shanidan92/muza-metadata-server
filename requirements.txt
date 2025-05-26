@@ -1,7 +1,10 @@
 Flask
+flask-cors
+python-dotenv
 graphene
-gunicorn
+gunicorn>=20.0.0
 setuptools
 graphql-core
 graphql-server
 black
+sqlalchemy
