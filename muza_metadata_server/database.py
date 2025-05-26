@@ -328,3 +328,116 @@ class Database:
             raise
         finally:
             session.close()
+
+    def fetch_unique_artists(self) -> List[Dict]:
+        """
+        Retrieve unique artists with all metadata from the first track of each artist.
+
+        Returns:
+            List[Dict]: List of unique artists with complete track metadata
+
+        Raises:
+            SQLAlchemyError: If there's a database error
+        """
+        session = self.get_session()
+        try:
+            # Get the first track per artist (by ID) to ensure consistent results
+            subquery = (
+                session.query(
+                    MusicTrack.artist_main,
+                    func.min(MusicTrack.id).label('first_track_id')
+                )
+                .filter(MusicTrack.artist_main.isnot(None))
+                .group_by(MusicTrack.artist_main)
+                .subquery()
+            )
+            
+            tracks = (
+                session.query(MusicTrack)
+                .join(subquery, MusicTrack.id == subquery.c.first_track_id)
+                .order_by(MusicTrack.artist_main)
+                .all()
+            )
+            
+            return [track.to_dict() for track in tracks]
+        except SQLAlchemyError as e:
+            logger.error(f"Database error in fetch_unique_artists: {str(e)}")
+            raise
+        finally:
+            session.close()
+
+    def search_artists(
+        self,
+        artist_main_contains: Optional[str] = None,
+        band_name_contains: Optional[str] = None,
+        album_title_contains: Optional[str] = None,
+        label_contains: Optional[str] = None,
+        min_year_recorded: Optional[int] = None,
+        max_year_recorded: Optional[int] = None,
+        min_year_released: Optional[int] = None,
+        max_year_released: Optional[int] = None,
+    ) -> List[Dict]:
+        """
+        Search for unique artists based on multiple criteria.
+
+        Returns:
+            List[Dict]: List of unique artists matching the search criteria
+
+        Raises:
+            SQLAlchemyError: If there's a database error
+        """
+        session = self.get_session()
+        try:
+            # Get the first track per artist (by ID) to ensure consistent results
+            subquery = (
+                session.query(
+                    MusicTrack.artist_main,
+                    func.min(MusicTrack.id).label('first_track_id')
+                )
+                .filter(MusicTrack.artist_main.isnot(None))
+                .group_by(MusicTrack.artist_main)
+                .subquery()
+            )
+            
+            query = (
+                session.query(MusicTrack)
+                .join(subquery, MusicTrack.id == subquery.c.first_track_id)
+            )
+            
+            conditions = []
+
+            if artist_main_contains:
+                conditions.append(MusicTrack.artist_main.ilike(f"%{artist_main_contains}%"))
+
+            if band_name_contains:
+                conditions.append(MusicTrack.band_name.ilike(f"%{band_name_contains}%"))
+
+            if album_title_contains:
+                conditions.append(MusicTrack.album_title.ilike(f"%{album_title_contains}%"))
+
+            if label_contains:
+                conditions.append(MusicTrack.label.ilike(f"%{label_contains}%"))
+
+            if min_year_recorded is not None:
+                conditions.append(MusicTrack.year_recorded >= min_year_recorded)
+
+            if max_year_recorded is not None:
+                conditions.append(MusicTrack.year_recorded <= max_year_recorded)
+
+            if min_year_released is not None:
+                conditions.append(MusicTrack.year_released >= min_year_released)
+
+            if max_year_released is not None:
+                conditions.append(MusicTrack.year_released <= max_year_released)
+
+            if conditions:
+                query = query.filter(and_(*conditions))
+
+            tracks = query.order_by(MusicTrack.artist_main).all()
+            return [track.to_dict() for track in tracks]
+
+        except SQLAlchemyError as e:
+            logger.error(f"Database error in search_artists: {str(e)}")
+            raise
+        finally:
+            session.close()
