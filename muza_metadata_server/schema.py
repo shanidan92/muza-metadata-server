@@ -284,7 +284,7 @@ class Query(graphene.ObjectType):
             return db.search_tracks(
                 title_contains=title_contains,
                 band_name_contains=band_name_contains,
-                album_titleContains=album_title_contains,
+                album_title_contains=album_title_contains,
                 label_contains=label_contains,
                 artist_main_contains=artist_main_contains,
                 other_artist_contains=other_artist_contains,
