@@ -232,20 +232,20 @@ class Database:
             subquery = (
                 session.query(
                     MusicTrack.album_title,
-                    func.min(MusicTrack.id).label('first_track_id')
+                    func.min(MusicTrack.id).label("first_track_id"),
                 )
                 .filter(MusicTrack.album_title.isnot(None))
                 .group_by(MusicTrack.album_title)
                 .subquery()
             )
-            
+
             tracks = (
                 session.query(MusicTrack)
                 .join(subquery, MusicTrack.id == subquery.c.first_track_id)
                 .order_by(MusicTrack.album_title)
                 .all()
             )
-            
+
             return [track.to_dict() for track in tracks]
         except SQLAlchemyError as e:
             logger.error(f"Database error in fetch_unique_albums: {str(e)}")
@@ -279,28 +279,31 @@ class Database:
             subquery = (
                 session.query(
                     MusicTrack.album_title,
-                    func.min(MusicTrack.id).label('first_track_id')
+                    func.min(MusicTrack.id).label("first_track_id"),
                 )
                 .filter(MusicTrack.album_title.isnot(None))
                 .group_by(MusicTrack.album_title)
                 .subquery()
             )
-            
-            query = (
-                session.query(MusicTrack)
-                .join(subquery, MusicTrack.id == subquery.c.first_track_id)
+
+            query = session.query(MusicTrack).join(
+                subquery, MusicTrack.id == subquery.c.first_track_id
             )
-            
+
             conditions = []
 
             if album_title_contains:
-                conditions.append(MusicTrack.album_title.ilike(f"%{album_title_contains}%"))
+                conditions.append(
+                    MusicTrack.album_title.ilike(f"%{album_title_contains}%")
+                )
 
             if label_contains:
                 conditions.append(MusicTrack.label.ilike(f"%{label_contains}%"))
 
             if artist_main_contains:
-                conditions.append(MusicTrack.artist_main.ilike(f"%{artist_main_contains}%"))
+                conditions.append(
+                    MusicTrack.artist_main.ilike(f"%{artist_main_contains}%")
+                )
 
             if band_name_contains:
                 conditions.append(MusicTrack.band_name.ilike(f"%{band_name_contains}%"))
@@ -345,20 +348,20 @@ class Database:
             subquery = (
                 session.query(
                     MusicTrack.artist_main,
-                    func.min(MusicTrack.id).label('first_track_id')
+                    func.min(MusicTrack.id).label("first_track_id"),
                 )
                 .filter(MusicTrack.artist_main.isnot(None))
                 .group_by(MusicTrack.artist_main)
                 .subquery()
             )
-            
+
             tracks = (
                 session.query(MusicTrack)
                 .join(subquery, MusicTrack.id == subquery.c.first_track_id)
                 .order_by(MusicTrack.artist_main)
                 .all()
             )
-            
+
             return [track.to_dict() for track in tracks]
         except SQLAlchemyError as e:
             logger.error(f"Database error in fetch_unique_artists: {str(e)}")
@@ -392,28 +395,31 @@ class Database:
             subquery = (
                 session.query(
                     MusicTrack.artist_main,
-                    func.min(MusicTrack.id).label('first_track_id')
+                    func.min(MusicTrack.id).label("first_track_id"),
                 )
                 .filter(MusicTrack.artist_main.isnot(None))
                 .group_by(MusicTrack.artist_main)
                 .subquery()
             )
-            
-            query = (
-                session.query(MusicTrack)
-                .join(subquery, MusicTrack.id == subquery.c.first_track_id)
+
+            query = session.query(MusicTrack).join(
+                subquery, MusicTrack.id == subquery.c.first_track_id
             )
-            
+
             conditions = []
 
             if artist_main_contains:
-                conditions.append(MusicTrack.artist_main.ilike(f"%{artist_main_contains}%"))
+                conditions.append(
+                    MusicTrack.artist_main.ilike(f"%{artist_main_contains}%")
+                )
 
             if band_name_contains:
                 conditions.append(MusicTrack.band_name.ilike(f"%{band_name_contains}%"))
 
             if album_title_contains:
-                conditions.append(MusicTrack.album_title.ilike(f"%{album_title_contains}%"))
+                conditions.append(
+                    MusicTrack.album_title.ilike(f"%{album_title_contains}%")
+                )
 
             if label_contains:
                 conditions.append(MusicTrack.label.ilike(f"%{label_contains}%"))

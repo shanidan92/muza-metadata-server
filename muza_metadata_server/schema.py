@@ -131,8 +131,14 @@ class Query(graphene.ObjectType):
     """
 
     all_tracks = graphene.List(MusicTrackType)
-    albums = graphene.List(AlbumType, description="Get all unique albums with all information from the first track")
-    all_artists = graphene.List(ArtistType, description="Get all unique artists with all information from the first track")
+    albums = graphene.List(
+        AlbumType,
+        description="Get all unique albums with all information from the first track",
+    )
+    all_artists = graphene.List(
+        ArtistType,
+        description="Get all unique artists with all information from the first track",
+    )
     search_albums = graphene.List(
         AlbumType,
         album_title_contains=graphene.String(),
