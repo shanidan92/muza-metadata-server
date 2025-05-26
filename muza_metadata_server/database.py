@@ -75,6 +75,19 @@ class Database:
                 logger.error(error_msg)
                 raise ValueError(error_msg)
 
+            # Check if track with MusicBrainz ID already exists
+            if track_data.get("musicbrainz_track_id"):
+                existing_mb_track = (
+                    session.query(MusicTrack)
+                    .filter(MusicTrack.musicbrainz_track_id == track_data["musicbrainz_track_id"])
+                    .first()
+                )
+
+                if existing_mb_track:
+                    error_msg = f"Track with MusicBrainz ID {track_data['musicbrainz_track_id']} already exists"
+                    logger.error(error_msg)
+                    raise ValueError(error_msg)
+
             # Create new track instance
             track = MusicTrack(**track_data)
             session.add(track)

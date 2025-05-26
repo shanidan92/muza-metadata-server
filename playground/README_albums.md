@@ -22,7 +22,7 @@ Retrieve all unique albums with complete information from the first track of eac
 curl -X POST http://localhost:5000/graphql \
   -H 'Content-Type: application/json' \
   -d '{
-    "query": "{ albums { id uuid albumTitle albumCover label labelLogo bandName artistMain yearRecorded yearReleased songTitle composer } }"
+    "query": "{ allAlbums { id uuid albumTitle albumCover label labelLogo bandName artistMain yearRecorded yearReleased songTitle composer } }"
   }' | jq
 ```
 
@@ -34,7 +34,7 @@ Get all albums with complete metadata including instruments and other artists.
 curl -X POST http://localhost:5000/graphql \
   -H 'Content-Type: application/json' \
   -d '{
-    "query": "{ albums { albumTitle albumCover label labelLogo bandName artistPhoto artistMain instrument otherArtistPlaying otherInstrument yearRecorded yearReleased songTitle composer songFile createdAt } }"
+    "query": "{ allAlbums { albumTitle albumCover label labelLogo bandName artistPhoto artistMain instrument otherArtistPlaying otherInstrument yearRecorded yearReleased songTitle composer songFile createdAt } }"
   }' | jq
 ```
 
@@ -118,7 +118,7 @@ Retrieve albums with focus on visual elements and metadata.
 curl -X POST http://localhost:5000/graphql \
   -H 'Content-Type: application/json' \
   -d '{
-    "query": "{ albums { albumTitle albumCover labelLogo artistPhoto bandName label yearReleased } }"
+    "query": "{ allAlbums { albumTitle albumCover labelLogo artistPhoto bandName label yearReleased } }"
   }' | jq
 ```
 

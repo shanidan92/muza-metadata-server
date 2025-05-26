@@ -84,7 +84,8 @@ class MuzaClient:
             "song_order": "songOrder",
             "song_title": "songTitle",
             "composer": "composer",
-            "song_file": "songFile"
+            "song_file": "songFile",
+            "musicbrainz_track_id": "musicbrainzTrackId"
         }
         
         args = []
@@ -94,7 +95,7 @@ class MuzaClient:
             "uuid", "original_uuid", "album_cover", "album_title", "label", 
             "label_logo", "band_name", "artist_photo", "artist_main", 
             "instrument", "other_artist_playing", "other_instrument", 
-            "song_title", "composer", "song_file"
+            "song_title", "composer", "song_file", "musicbrainz_track_id"
         ]
         
         for field in string_fields:
