@@ -22,6 +22,35 @@ make run-dev
 
 ## Example Queries
 
+### Fetch all tracks
+```graphql
+{
+  allTracks {
+    id
+    uuid
+    songTitle
+    artistMain
+    bandName
+    albumTitle
+    yearRecorded
+    yearReleased
+    instrument
+    otherArtistPlaying
+    otherInstrument
+    composer
+    label
+    createdAt
+  }
+}
+```
+```bash
+curl -X POST http://localhost:5000/graphql \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "query": "{ allTracks { id uuid songTitle artistMain bandName albumTitle yearRecorded yearReleased instrument otherArtistPlaying otherInstrument composer label createdAt } }"
+  }' | jq
+```
+
 ### Insert a new track
 ```graphql
 mutation {

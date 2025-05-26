@@ -40,7 +40,7 @@ make run-uploader
 
 ```bash
 curl -X POST http://localhost:5002/upload \
-  -F "file=@/path/to/your/song.flac"
+  -F "file=@/path/to/your/song.flac" | jq
 ```
 
 ### Example response
