@@ -6,6 +6,30 @@ from sqlalchemy.exc import SQLAlchemyError
 from .utils import run_hook
 
 
+class AlbumType(graphene.ObjectType):
+    id = graphene.Int()
+    uuid = graphene.String()
+    original_uuid = graphene.String()
+    album_title = graphene.String()
+    song_count = graphene.Int()
+    album_cover = graphene.String()
+    label = graphene.String()
+    label_logo = graphene.String()
+    band_name = graphene.String()
+    artist_photo = graphene.String()
+    artist_main = graphene.String()
+    instrument = graphene.String()
+    other_artist_playing = graphene.String()
+    other_instrument = graphene.String()
+    year_recorded = graphene.Int()
+    year_released = graphene.Int()
+    song_order = graphene.Int()
+    song_title = graphene.String()
+    composer = graphene.String()
+    song_file = graphene.String()
+    created_at = graphene.String()
+
+
 class MusicTrackType(graphene.ObjectType):
     id = graphene.Int()
     uuid = graphene.String()
@@ -84,6 +108,19 @@ class Query(graphene.ObjectType):
     """
 
     all_tracks = graphene.List(MusicTrackType)
+    albums = graphene.List(AlbumType, description="Get all unique albums with all information from the first track")
+    search_albums = graphene.List(
+        AlbumType,
+        album_title_contains=graphene.String(),
+        label_contains=graphene.String(),
+        artist_main_contains=graphene.String(),
+        band_name_contains=graphene.String(),
+        min_year_recorded=graphene.Int(),
+        max_year_recorded=graphene.Int(),
+        min_year_released=graphene.Int(),
+        max_year_released=graphene.Int(),
+        description="Search albums by optional fields: partial text fields and year ranges.",
+    )
     search_tracks = graphene.List(
         MusicTrackType,
         title_contains=graphene.String(),
@@ -106,6 +143,42 @@ class Query(graphene.ObjectType):
             return db.fetch_all_tracks()
         except SQLAlchemyError as e:
             logging.error(f"Database error in resolve_all_tracks: {str(e)}")
+            return []
+
+    def resolve_albums(self, info):
+        db = info.context.get("db")
+        try:
+            return db.fetch_unique_albums()
+        except SQLAlchemyError as e:
+            logging.error(f"Database error in resolve_albums: {str(e)}")
+            return []
+
+    def resolve_search_albums(
+        self,
+        info,
+        album_title_contains=None,
+        label_contains=None,
+        artist_main_contains=None,
+        band_name_contains=None,
+        min_year_recorded=None,
+        max_year_recorded=None,
+        min_year_released=None,
+        max_year_released=None,
+    ):
+        db = info.context.get("db")
+        try:
+            return db.search_albums(
+                album_title_contains=album_title_contains,
+                label_contains=label_contains,
+                artist_main_contains=artist_main_contains,
+                band_name_contains=band_name_contains,
+                min_year_recorded=min_year_recorded,
+                max_year_recorded=max_year_recorded,
+                min_year_released=min_year_released,
+                max_year_released=max_year_released,
+            )
+        except SQLAlchemyError as e:
+            logging.error(f"Database error in resolve_search_albums: {str(e)}")
             return []
 
     def resolve_search_tracks(
