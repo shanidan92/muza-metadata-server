@@ -217,7 +217,12 @@
             formData.append('file', file);
 
             try {
-                const response = await fetch('/upload', {
+                // Get current path and build upload URL
+                const currentPath = window.location.pathname;
+                const basePath = currentPath.endsWith('/') ? currentPath : currentPath + '/';
+                const uploadUrl = basePath + 'upload';
+                
+                const response = await fetch(uploadUrl, {
                     method: 'POST',
                     body: formData
                 });
