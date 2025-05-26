@@ -27,6 +27,7 @@ class AlbumType(graphene.ObjectType):
     song_title = graphene.String()
     composer = graphene.String()
     song_file = graphene.String()
+    musicbrainz_track_id = graphene.String()
     created_at = graphene.String()
 
 
@@ -50,6 +51,7 @@ class MusicTrackType(graphene.ObjectType):
     song_title = graphene.String()
     composer = graphene.String()
     song_file = graphene.String()
+    musicbrainz_track_id = graphene.String()
     created_at = graphene.String()
 
 
@@ -73,6 +75,7 @@ class ArtistType(graphene.ObjectType):
     song_title = graphene.String()
     composer = graphene.String()
     song_file = graphene.String()
+    musicbrainz_track_id = graphene.String()
     created_at = graphene.String()
 
 
@@ -101,6 +104,7 @@ class CreateMusicTrack(graphene.Mutation):
         song_title = graphene.String()
         composer = graphene.String()
         song_file = graphene.String()
+        musicbrainz_track_id = graphene.String()
 
     ok = graphene.Boolean()
     track = graphene.Field(MusicTrackType)
@@ -131,7 +135,7 @@ class Query(graphene.ObjectType):
     """
 
     all_tracks = graphene.List(MusicTrackType)
-    albums = graphene.List(
+    all_albums = graphene.List(
         AlbumType,
         description="Get all unique albums with all information from the first track",
     )
@@ -187,7 +191,7 @@ class Query(graphene.ObjectType):
             logging.error(f"Database error in resolve_all_tracks: {str(e)}")
             return []
 
-    def resolve_albums(self, info):
+    def resolve_all_albums(self, info):
         db = info.context.get("db")
         try:
             return db.fetch_unique_albums()
@@ -280,7 +284,7 @@ class Query(graphene.ObjectType):
             return db.search_tracks(
                 title_contains=title_contains,
                 band_name_contains=band_name_contains,
-                album_title_contains=album_title_contains,
+                album_titleContains=album_title_contains,
                 label_contains=label_contains,
                 artist_main_contains=artist_main_contains,
                 other_artist_contains=other_artist_contains,

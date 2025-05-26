@@ -85,6 +85,42 @@ curl -X POST http://localhost:5000/graphql \
   }' | jq
 ```
 
+### Insert a new track with MusicBrainz ID
+```graphql
+mutation {
+  createMusicTrack(
+    albumTitle: "NEW HORIZONS"
+    artistMain: "John Smith"
+    instrument: "Piano"
+    songTitle: "Morning Light"
+    yearRecorded: 2023
+    yearReleased: 2023
+    bandName: "The Trio"
+    otherArtistPlaying: "Jane Doe, Bob Wilson"
+    otherInstrument: "Bass, Drums"
+    composer: "John Smith"
+    label: "Jazz Records"
+    musicbrainzTrackId: "123e4567-e89b-12d3-a456-426614174000"
+  ) {
+    ok
+    track {
+      id
+      uuid
+      songTitle
+      musicbrainzTrackId
+      createdAt
+    }
+  }
+}
+```
+```bash
+curl -X POST http://localhost:5000/graphql \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "query": "mutation { createMusicTrack(albumTitle: \"NEW HORIZONS\", artistMain: \"John Smith\", instrument: \"Piano\", songTitle: \"Morning Light\", yearRecorded: 2023, yearReleased: 2023, bandName: \"The Trio\", otherArtistPlaying: \"Jane Doe, Bob Wilson\", otherInstrument: \"Bass, Drums\", composer: \"John Smith\", label: \"Jazz Records\", musicbrainzTrackId: \"123e4567-e89b-12d3-a456-426614174000\") { ok track { id uuid songTitle musicbrainzTrackId createdAt } } }"
+  }' | jq
+```
+
 ### Find all tracks from Lost Brother album
 ```graphql
 {
@@ -273,5 +309,27 @@ curl -X POST http://localhost:5000/graphql \
   -H 'Content-Type: application/json' \
   -d '{
     "query": "{ searchTracks(albumTitleContains: \"LOST BROTHER\") { artistMain instrument otherArtistPlaying otherInstrument } }"
+  }' | jq
+```
+
+### Find track by MusicBrainz ID
+```graphql
+{
+  searchTracks(
+    musicbrainzTrackId: "123e4567-e89b-12d3-a456-426614174000"
+  ) {
+    songTitle
+    artistMain
+    albumTitle
+    musicbrainzTrackId
+    yearReleased
+  }
+}
+```
+```bash
+curl -X POST http://localhost:5000/graphql \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "query": "{ searchTracks(musicbrainzTrackId: \"123e4567-e89b-12d3-a456-426614174000\") { songTitle artistMain albumTitle musicbrainzTrackId yearReleased } }"
   }' | jq
 ```

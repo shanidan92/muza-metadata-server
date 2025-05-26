@@ -104,6 +104,7 @@ class Database:
         min_year_released: Optional[int] = None,
         max_year_released: Optional[int] = None,
         year_recorded: Optional[int] = None,
+        musicbrainz_track_id: Optional[str] = None,
     ) -> List[Dict]:
         """
         Search for tracks based on multiple criteria.
@@ -160,6 +161,9 @@ class Database:
 
             if max_year_released is not None:
                 conditions.append(MusicTrack.year_released <= max_year_released)
+
+            if musicbrainz_track_id:
+                conditions.append(MusicTrack.musicbrainz_track_id == musicbrainz_track_id)
 
             if conditions:
                 query = query.filter(and_(*conditions))
