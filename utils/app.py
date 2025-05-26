@@ -1,6 +1,6 @@
 import logging
 import os
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, render_template
 from werkzeug.exceptions import RequestEntityTooLarge
 from .config import Config
 from .file_handler import FileHandler
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 def create_app(config: Config = None) -> Flask:
     """Create and configure Flask application"""
-    app = Flask(__name__)
+    app = Flask(__name__, template_folder='templates')
     
     # Load configuration
     if config is None:
@@ -37,6 +37,11 @@ def create_app(config: Config = None) -> Flask:
     )
     muza_client = MuzaClient(config.muza_server_url)
     
+    @app.route('/', methods=['GET'])
+    def index():
+        """Serve the upload interface"""
+        return render_template('index.html')
+
     @app.route('/health', methods=['GET'])
     def health_check():
         """Health check endpoint"""
