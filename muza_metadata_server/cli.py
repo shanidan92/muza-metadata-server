@@ -44,10 +44,6 @@ def main():
     )
 
     config = Config.from_args(args)
-    
-    # Override with database-url if provided
-    if hasattr(args, 'database_url') and args.database_url:
-        config.database_url = args.database_url
 
     app = create_app(config)
     app.run(port=args.port, debug=args.debug)

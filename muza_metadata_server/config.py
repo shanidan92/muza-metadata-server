@@ -34,6 +34,10 @@ class Config:
         if hasattr(args, "db_path") and args.db_path:
             config.database_url = f"sqlite:///{args.db_path}"
 
+        # Handle database_url argument
+        if hasattr(args, "database_url") and args.database_url:
+            config.database_url = args.database_url
+
         config.debug = args.debug if hasattr(args, "debug") else config.debug
         config.hook_command = (
             args.hook_command if hasattr(args, "hook_command") else config.hook_command

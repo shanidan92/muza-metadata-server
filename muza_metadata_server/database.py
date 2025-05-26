@@ -16,7 +16,9 @@ class Database:
     def __init__(self, database_url: str):
         self.database_url = database_url
         self.engine = create_engine(database_url)
-        self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
+        self.SessionLocal = sessionmaker(
+            autocommit=False, autoflush=False, bind=self.engine
+        )
         self.init_db()
 
     def init_db(self):
@@ -62,10 +64,12 @@ class Database:
         session = self.get_session()
         try:
             # Check if track with UUID already exists
-            existing_track = session.query(MusicTrack).filter(
-                MusicTrack.uuid == track_data["uuid"]
-            ).first()
-            
+            existing_track = (
+                session.query(MusicTrack)
+                .filter(MusicTrack.uuid == track_data["uuid"])
+                .first()
+            )
+
             if existing_track:
                 error_msg = f"Track with UUID {track_data['uuid']} already exists"
                 logger.error(error_msg)
@@ -76,7 +80,7 @@ class Database:
             session.add(track)
             session.commit()
             session.refresh(track)
-            
+
             return track.to_dict()
 
         except (SQLAlchemyError, ValueError) as e:
@@ -122,16 +126,22 @@ class Database:
                 conditions.append(MusicTrack.band_name.ilike(f"%{band_name_contains}%"))
 
             if album_title_contains:
-                conditions.append(MusicTrack.album_title.ilike(f"%{album_title_contains}%"))
+                conditions.append(
+                    MusicTrack.album_title.ilike(f"%{album_title_contains}%")
+                )
 
             if label_contains:
                 conditions.append(MusicTrack.label.ilike(f"%{label_contains}%"))
 
             if artist_main_contains:
-                conditions.append(MusicTrack.artist_main.ilike(f"%{artist_main_contains}%"))
+                conditions.append(
+                    MusicTrack.artist_main.ilike(f"%{artist_main_contains}%")
+                )
 
             if other_artist_contains:
-                conditions.append(MusicTrack.other_artist_playing.ilike(f"%{other_artist_contains}%"))
+                conditions.append(
+                    MusicTrack.other_artist_playing.ilike(f"%{other_artist_contains}%")
+                )
 
             if composer_contains:
                 conditions.append(MusicTrack.composer.ilike(f"%{composer_contains}%"))
