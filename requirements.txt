@@ -5,6 +5,7 @@ setuptools
 graphql-core
 graphql-server
 black
+sqlalchemy
 
 mutagen
 musicbrainzngs

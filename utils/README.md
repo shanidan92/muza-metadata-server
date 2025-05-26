@@ -14,11 +14,13 @@ A Flask API server for processing FLAC files and integrating with the Muza Metad
 ## Installation
 
 1. Install dependencies:
+
 ```bash
 pip install -r requirements.txt
 ```
 
 2. Set environment variables (optional):
+
 ```bash
 export UPLOAD_DIR=downloads
 export MUZA_SERVER_URL=http://localhost:5000/graphql
@@ -31,7 +33,7 @@ export DEBUG=false
 ### Start the server
 
 ```bash
-python -m utils.app
+make run-uploader
 ```
 
 ### Upload a FLAC file
@@ -69,23 +71,28 @@ curl -X POST http://localhost:5002/upload \
 ## API Endpoints
 
 ### POST /upload
+
 Upload and process a FLAC file.
 
 **Request:**
+
 - Method: POST
 - Content-Type: multipart/form-data
 - Body: file (FLAC file)
 
 **Response:**
+
 - 200: Success with track data
 - 400: Invalid file or processing error
 - 413: File too large
 - 500: Server error
 
 ### GET /files/{filename}
+
 Serve uploaded files and album covers.
 
 ### GET /health
+
 Health check endpoint.
 
 ## Configuration
@@ -93,10 +100,10 @@ Health check endpoint.
 Environment variables:
 
 - `UPLOAD_DIR`: Directory for uploaded files (default: downloads)
-- `MUZA_SERVER_URL`: Muza Metadata Server GraphQL endpoint (default: http://localhost:5000/graphql)
+- `MUZA_SERVER_URL`: Muza Metadata Server GraphQL endpoint (default: <http://localhost:5000/graphql>)
 - `MUSICBRAINZ_APP_NAME`: App name for MusicBrainz API (default: MuzaUtils)
 - `MUSICBRAINZ_APP_VERSION`: App version for MusicBrainz API (default: 1.0)
-- `MUSICBRAINZ_CONTACT`: Contact email for MusicBrainz API (default: admin@example.com)
+- `MUSICBRAINZ_CONTACT`: Contact email for MusicBrainz API (default: <admin@example.com>)
 - `PORT`: Server port (default: 5002)
 - `DEBUG`: Enable debug mode (default: false)
 
@@ -104,7 +111,7 @@ Environment variables:
 
 1. **File Upload**: FLAC file is uploaded and saved to upload directory
 2. **Metadata Extraction**: Extract tags from FLAC using Mutagen
-3. **MusicBrainz Enhancement**: 
+3. **MusicBrainz Enhancement**:
    - Lookup by MusicBrainz ID if present in tags
    - Search by title/artist if no ID
    - Merge additional metadata
