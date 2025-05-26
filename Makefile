@@ -133,4 +133,4 @@ lint:
 .PHONY: run-uploader
 run-uploader:
 	. $(VENV_DIR)/bin/activate && \
-	$(PYTHON) -m utils.app $(ARGS)
+	$(PYTHON) -m utils.uploader $(ARGS)

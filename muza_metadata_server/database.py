@@ -75,6 +75,19 @@ class Database:
                 logger.error(error_msg)
                 raise ValueError(error_msg)
 
+            # Check if track with MusicBrainz ID already exists
+            if track_data.get("musicbrainz_track_id"):
+                existing_mb_track = (
+                    session.query(MusicTrack)
+                    .filter(MusicTrack.musicbrainz_track_id == track_data["musicbrainz_track_id"])
+                    .first()
+                )
+
+                if existing_mb_track:
+                    error_msg = f"Track with MusicBrainz ID {track_data['musicbrainz_track_id']} already exists"
+                    logger.error(error_msg)
+                    raise ValueError(error_msg)
+
             # Create new track instance
             track = MusicTrack(**track_data)
             session.add(track)
@@ -104,6 +117,7 @@ class Database:
         min_year_released: Optional[int] = None,
         max_year_released: Optional[int] = None,
         year_recorded: Optional[int] = None,
+        musicbrainz_track_id: Optional[str] = None,
     ) -> List[Dict]:
         """
         Search for tracks based on multiple criteria.
@@ -160,6 +174,9 @@ class Database:
 
             if max_year_released is not None:
                 conditions.append(MusicTrack.year_released <= max_year_released)
+
+            if musicbrainz_track_id:
+                conditions.append(MusicTrack.musicbrainz_track_id == musicbrainz_track_id)
 
             if conditions:
                 query = query.filter(and_(*conditions))

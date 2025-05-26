@@ -43,6 +43,9 @@ class MusicTrack(Base):
     composer = Column(String(255), nullable=True, index=True)
     song_file = Column(Text, nullable=True)
 
+    # MusicBrainz integration
+    musicbrainz_track_id = Column(String(36), nullable=True, index=True)
+
     # Timestamp
     created_at = Column(String(32), nullable=True)
 
@@ -70,6 +73,7 @@ class MusicTrack(Base):
             "song_title": self.song_title,
             "composer": self.composer,
             "song_file": self.song_file,
+            "musicbrainz_track_id": self.musicbrainz_track_id,
             "created_at": self.created_at,
         }
 
