@@ -1,56 +1,55 @@
-import sqlite3
 import logging
-from typing import Dict
+from typing import Dict, List, Optional
+from sqlalchemy import create_engine, and_, or_
+from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from .models import Base, MusicTrack
 
 logger = logging.getLogger(__name__)
 
 
 class Database:
     """
-    Database handler class for music tracks metadata.
+    Database handler class for music tracks metadata using SQLAlchemy.
     """
 
-    def __init__(self, db_path: str):
-        self.db_path = db_path
+    def __init__(self, database_url: str):
+        self.database_url = database_url
+        self.engine = create_engine(database_url)
+        self.SessionLocal = sessionmaker(
+            autocommit=False, autoflush=False, bind=self.engine
+        )
         self.init_db()
-
-    def get_connection(self):
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        return conn
 
     def init_db(self):
         """
         Initialize the database schema.
-
-        Reads the schema from 'schema.sql' file and executes it to create
-        the necessary tables if they don't exist.
-
-        Raises:
-            FileNotFoundError: If schema.sql is not found
-            sqlite3.Error: If there's an error executing the schema
+        Creates all tables defined in the models.
         """
-        with open("schema.sql") as f:
-            schema = f.read()
-            with self.get_connection() as conn:
-                conn.executescript(schema)
+        try:
+            Base.metadata.create_all(bind=self.engine)
+            logger.info("Database tables created successfully")
+        except SQLAlchemyError as e:
+            logger.error(f"Error creating database tables: {str(e)}")
+            raise
+
+    def get_session(self) -> Session:
+        """Get a new database session"""
+        return self.SessionLocal()
 
     def insert_track(self, track_data: Dict) -> Dict:
         """
         Insert a new track into the database.
 
         Args:
-            track_data (Dict): Dictionary containing track information including:
-                - uuid (str): Unique identifier for the track
-                - song_title (str): Title of the song
-                - Optional fields: band_name, album_title, label, etc.
+            track_data (Dict): Dictionary containing track information
 
         Returns:
             Dict: The inserted track data including the generated database ID
 
         Raises:
             ValueError: If required fields are missing or if UUID already exists
-            sqlite3.Error: If there's a database error
+            SQLAlchemyError: If there's a database error
         """
         required_fields = ["uuid", "song_title"]
 
@@ -62,142 +61,119 @@ class Database:
             logger.error(error_msg)
             raise ValueError(error_msg)
 
-        conn = self.get_connection()
-        cursor = conn.cursor()
-
-        sanitized_data = track_data.copy()
-        sanitized_data.pop("id", None)
-
+        session = self.get_session()
         try:
             # Check if track with UUID already exists
-            cursor.execute(
-                "SELECT id FROM music_tracks WHERE uuid = ?", (sanitized_data["uuid"],)
+            existing_track = (
+                session.query(MusicTrack)
+                .filter(MusicTrack.uuid == track_data["uuid"])
+                .first()
             )
-            if cursor.fetchone():
-                error_msg = f"Track with UUID {sanitized_data['uuid']} already exists"
+
+            if existing_track:
+                error_msg = f"Track with UUID {track_data['uuid']} already exists"
                 logger.error(error_msg)
                 raise ValueError(error_msg)
 
-            columns = ", ".join(sanitized_data.keys())
-            placeholders = ", ".join(["?"] * len(sanitized_data))
-            values = list(sanitized_data.values())
+            # Create new track instance
+            track = MusicTrack(**track_data)
+            session.add(track)
+            session.commit()
+            session.refresh(track)
 
-            query = f"INSERT INTO music_tracks ({columns}) VALUES ({placeholders})"
-            cursor.execute(query, values)
-            conn.commit()
+            return track.to_dict()
 
-            row_id = cursor.lastrowid
-            cursor.execute("SELECT * FROM music_tracks WHERE id = ?", (row_id,))
-            row = cursor.fetchone()
-            return dict(row)
-
-        except (sqlite3.Error, ValueError) as e:
+        except (SQLAlchemyError, ValueError) as e:
             logger.error(f"Error in insert_track: {str(e)}")
-            conn.rollback()
+            session.rollback()
             raise
         finally:
-            conn.close()
+            session.close()
 
     def search_tracks(
         self,
-        title_contains=None,
-        band_name_contains=None,
-        album_title_contains=None,
-        label_contains=None,
-        artist_main_contains=None,
-        other_artist_contains=None,
-        composer_contains=None,
-        min_year_recorded=None,
-        max_year_recorded=None,
-        min_year_released=None,
-        max_year_released=None,
-    ):
+        title_contains: Optional[str] = None,
+        band_name_contains: Optional[str] = None,
+        album_title_contains: Optional[str] = None,
+        label_contains: Optional[str] = None,
+        artist_main_contains: Optional[str] = None,
+        other_artist_contains: Optional[str] = None,
+        composer_contains: Optional[str] = None,
+        min_year_recorded: Optional[int] = None,
+        max_year_recorded: Optional[int] = None,
+        min_year_released: Optional[int] = None,
+        max_year_released: Optional[int] = None,
+        year_recorded: Optional[int] = None,
+    ) -> List[Dict]:
         """
         Search for tracks based on multiple criteria.
-
-        Args:
-            title_contains (str, optional): Partial match for song title
-            band_name_contains (str, optional): Partial match for band name
-            album_title_contains (str, optional): Partial match for album title
-            label_contains (str, optional): Partial match for label name
-            artist_main_contains (str, optional): Partial match for main artist
-            other_artist_contains (str, optional): Partial match for other artists
-            composer_contains (str, optional): Partial match for composer name
-            min_year_recorded (int, optional): Minimum year recorded
-            max_year_recorded (int, optional): Maximum year recorded
-            min_year_released (int, optional): Minimum year released
-            max_year_released (int, optional): Maximum year released
 
         Returns:
             List[Dict]: List of tracks matching the search criteria
 
         Raises:
-            sqlite3.Error: If there's a database error
+            SQLAlchemyError: If there's a database error
         """
-        query = "SELECT * FROM music_tracks"
-        conditions = []
-        params = []
-
-        if title_contains:
-            conditions.append("LOWER(song_title) LIKE ?")
-            params.append(f"%{title_contains.lower()}%")
-
-        if band_name_contains:
-            conditions.append("LOWER(band_name) LIKE ?")
-            params.append(f"%{band_name_contains.lower()}%")
-
-        if album_title_contains:
-            conditions.append("LOWER(album_title) LIKE ?")
-            params.append(f"%{album_title_contains.lower()}%")
-
-        if label_contains:
-            conditions.append("LOWER(label) LIKE ?")
-            params.append(f"%{label_contains.lower()}%")
-
-        if artist_main_contains:
-            conditions.append("LOWER(artist_main) LIKE ?")
-            params.append(f"%{artist_main_contains.lower()}%")
-
-        if other_artist_contains:
-            conditions.append("LOWER(other_artist_playing) LIKE ?")
-            params.append(f"%{other_artist_contains.lower()}%")
-
-        if composer_contains:
-            conditions.append("LOWER(composer) LIKE ?")
-            params.append(f"%{composer_contains.lower()}%")
-
-        if min_year_recorded is not None:
-            conditions.append("year_recorded >= ?")
-            params.append(min_year_recorded)
-
-        if max_year_recorded is not None:
-            conditions.append("year_recorded <= ?")
-            params.append(max_year_recorded)
-
-        if min_year_released is not None:
-            conditions.append("year_released >= ?")
-            params.append(min_year_released)
-
-        if max_year_released is not None:
-            conditions.append("year_released <= ?")
-            params.append(max_year_released)
-
-        if conditions:
-            query += " WHERE " + " AND ".join(conditions)
-
-        conn = self.get_connection()
-        cursor = conn.cursor()
+        session = self.get_session()
         try:
-            cursor.execute(query, params)
-            rows = cursor.fetchall()
-            return [dict(row) for row in rows]
-        except sqlite3.Error as e:
+            query = session.query(MusicTrack)
+            conditions = []
+
+            if title_contains:
+                conditions.append(MusicTrack.song_title.ilike(f"%{title_contains}%"))
+
+            if band_name_contains:
+                conditions.append(MusicTrack.band_name.ilike(f"%{band_name_contains}%"))
+
+            if album_title_contains:
+                conditions.append(
+                    MusicTrack.album_title.ilike(f"%{album_title_contains}%")
+                )
+
+            if label_contains:
+                conditions.append(MusicTrack.label.ilike(f"%{label_contains}%"))
+
+            if artist_main_contains:
+                conditions.append(
+                    MusicTrack.artist_main.ilike(f"%{artist_main_contains}%")
+                )
+
+            if other_artist_contains:
+                conditions.append(
+                    MusicTrack.other_artist_playing.ilike(f"%{other_artist_contains}%")
+                )
+
+            if composer_contains:
+                conditions.append(MusicTrack.composer.ilike(f"%{composer_contains}%"))
+
+            if year_recorded is not None:
+                conditions.append(MusicTrack.year_recorded == year_recorded)
+
+            if min_year_recorded is not None:
+                conditions.append(MusicTrack.year_recorded >= min_year_recorded)
+
+            if max_year_recorded is not None:
+                conditions.append(MusicTrack.year_recorded <= max_year_recorded)
+
+            if min_year_released is not None:
+                conditions.append(MusicTrack.year_released >= min_year_released)
+
+            if max_year_released is not None:
+                conditions.append(MusicTrack.year_released <= max_year_released)
+
+            if conditions:
+                query = query.filter(and_(*conditions))
+
+            tracks = query.all()
+            return [track.to_dict() for track in tracks]
+
+        except SQLAlchemyError as e:
             logger.error(f"Database error in search_tracks: {str(e)}")
             raise
         finally:
-            conn.close()
+            session.close()
 
-    def fetch_all_tracks(self):
+    def fetch_all_tracks(self) -> List[Dict]:
         """
         Retrieve all tracks from the database.
 
@@ -205,21 +181,19 @@ class Database:
             List[Dict]: List of all tracks in the database
 
         Raises:
-            sqlite3.Error: If there's a database error
+            SQLAlchemyError: If there's a database error
         """
-        conn = self.get_connection()
-        cursor = conn.cursor()
+        session = self.get_session()
         try:
-            cursor.execute("SELECT * FROM music_tracks")
-            rows = cursor.fetchall()
-            return [dict(row) for row in rows]
-        except sqlite3.Error as e:
+            tracks = session.query(MusicTrack).all()
+            return [track.to_dict() for track in tracks]
+        except SQLAlchemyError as e:
             logger.error(f"Database error in fetch_all_tracks: {str(e)}")
             raise
         finally:
-            conn.close()
+            session.close()
 
-    def fetch_track_by_id(self, track_id):
+    def fetch_track_by_id(self, track_id: int) -> Optional[Dict]:
         """
         Retrieve a specific track by its ID.
 
@@ -230,16 +204,14 @@ class Database:
             Dict: Track data if found, None otherwise
 
         Raises:
-            sqlite3.Error: If there's a database error
+            SQLAlchemyError: If there's a database error
         """
-        conn = self.get_connection()
-        cursor = conn.cursor()
+        session = self.get_session()
         try:
-            cursor.execute("SELECT * FROM music_tracks WHERE id = ?", (track_id,))
-            row = cursor.fetchone()
-            return dict(row) if row else None
-        except sqlite3.Error as e:
+            track = session.query(MusicTrack).filter(MusicTrack.id == track_id).first()
+            return track.to_dict() if track else None
+        except SQLAlchemyError as e:
             logger.error(f"Database error in fetch_track_by_id: {str(e)}")
             raise
         finally:
-            conn.close()
+            session.close()

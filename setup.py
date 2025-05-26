@@ -8,6 +8,7 @@ setup(
         "Flask==2.3.3",
         "graphene==3.3.0",
         "gunicorn==21.2.0",
+        "sqlalchemy>=2.0.0",
     ],
     entry_points={
         "console_scripts": [

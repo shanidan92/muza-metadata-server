@@ -2,7 +2,7 @@ import uuid
 import logging
 from datetime import datetime, timezone
 import graphene
-import sqlite3
+from sqlalchemy.exc import SQLAlchemyError
 from .utils import run_hook
 
 
@@ -73,7 +73,7 @@ class CreateMusicTrack(graphene.Mutation):
                 # Run the hook if insertion was successful
                 run_hook(config.hook_command, track_data)
             return CreateMusicTrack(ok=True, track=track_data)
-        except (ValueError, sqlite3.Error) as e:
+        except (ValueError, SQLAlchemyError) as e:
             logging.error(f"Failed to create track: {str(e)}")
             return CreateMusicTrack(ok=False, track=None)
 
@@ -104,7 +104,7 @@ class Query(graphene.ObjectType):
         db = info.context.get("db")
         try:
             return db.fetch_all_tracks()
-        except sqlite3.Error as e:
+        except SQLAlchemyError as e:
             logging.error(f"Database error in resolve_all_tracks: {str(e)}")
             return []
 
@@ -122,6 +122,7 @@ class Query(graphene.ObjectType):
         max_year_recorded=None,
         min_year_released=None,
         max_year_released=None,
+        year_recorded=None,
     ):
         db = info.context.get("db")
         try:
@@ -137,8 +138,9 @@ class Query(graphene.ObjectType):
                 max_year_recorded=max_year_recorded,
                 min_year_released=min_year_released,
                 max_year_released=max_year_released,
+                year_recorded=year_recorded,
             )
-        except sqlite3.Error as e:
+        except SQLAlchemyError as e:
             logging.error(f"Database error in resolve_search_tracks: {str(e)}")
             return []
 
