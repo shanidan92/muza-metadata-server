@@ -1,10 +1,12 @@
 Flask
-flask-cors
-python-dotenv
 graphene
-gunicorn>=20.0.0
+gunicorn
 setuptools
 graphql-core
 graphql-server
 black
-sqlalchemy
+
+mutagen
+musicbrainzngs
+requests
+python-dotenv

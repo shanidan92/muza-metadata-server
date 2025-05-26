@@ -18,6 +18,7 @@ help:
 	@echo "Development Commands:"
 	@echo "  make install        - Install dependencies into the virtual environment"
 	@echo "  make run-dev        - Run the development server"
+	@echo "  make run-utils      - Run the utils FLAC processing API server"
 	@echo "  make format         - Format Python code using black"
 	@echo "  make lint           - Check Python code formatting using black"
 	@echo ""
@@ -128,3 +129,8 @@ format:
 lint:
 	. $(VENV_DIR)/bin/activate && \
 	black --check .
+
+.PHONY: run-utils
+run-utils:
+	. $(VENV_DIR)/bin/activate && \
+	$(PYTHON) -m utils.app $(ARGS)

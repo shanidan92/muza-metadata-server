@@ -30,6 +30,7 @@ build/
 # System files
 .DS_Store
 Thumbs.db
+downloads/
 
 certs/
 data/
