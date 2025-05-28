@@ -116,7 +116,8 @@
             <div class="upload-area" id="uploadArea">
                 <p><strong>Drop FLAC file here or click to select</strong></p>
                 <p>Only .flac files are supported</p>
-                <input type="file" id="fileInput" class="file-input" accept=".flac" required>
+                <input type="file" id="fileInput" class="file-input" accept=".flac"   webkitdirectory
+                 required>
                 <button type="button" class="upload-btn" onclick="document.getElementById('fileInput').click()">
                     Choose File
                 </button>
@@ -168,8 +169,9 @@
 
         // File input change
         fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                handleFileSelect(e.target.files[0]);
+            const files = e.target.files
+            for(let i = 1; i < files.length-1; i++) {
+                handleFileSelect(e.target.files[i]);
             }
         });
 
@@ -196,10 +198,35 @@
             dt.items.add(file);
             fileInput.files = dt.files;
         }
+               function handleFileSelect(file) {
+            // Check file type
+            if (!file.name.toLowerCase().endsWith('.flac')) {
+                alert('Please select a FLAC file (.flac)');
+                return;
+            }
+
+            // Show file info
+            fileInfo.style.display = 'block';
+            fileInfo.innerHTML = `
+                <strong>Selected file:</strong> ${file.name}<br>
+                <strong>Size:</strong> ${(file.size / 1024 / 1024).toFixed(2)} MB<br>
+                <strong>Type:</strong> ${file.type || 'audio/flac'}
+            `;
+
+            // Enable submit button
+            submitBtn.disabled = false;
+            
+            // Set the file to the input
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            fileInput.files = dt.files;
+        }
+
 
         // Form submission
         uploadForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            console.log(fileInput.files)
             
             const file = fileInput.files[0];
             if (!file) {
