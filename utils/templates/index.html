@@ -217,74 +217,77 @@
 
         // Form submission
         uploadForm.addEventListener('submit', async (e) => {
-            console.log(e);
-            e.preventDefault();            
-            const file =folderInput.files[0];
-            if (!file) {
-                alert('Please select a file first');
-                return;
-            }
+            e.preventDefault();        
+            for (let i = 0; i < folderInput.files.length; i++) {
+                const file =folderInput.files[i];
+                if (!file) {
+                    alert('Please select a file first');
+                    return;
+                }
 
-            // Show loading
-            loading.style.display = 'block';
-            responseArea.style.display = 'none';
-            submitBtn.disabled = true;
+                // Show loading
+                loading.style.display = 'block';
+                responseArea.style.display = 'none';
+                submitBtn.disabled = true;
 
-            // Create form data
-            const formData = new FormData();
-            formData.append('file', file);
+                // Create form data
+                const formData = new FormData();
+                formData.append('file', file);
 
-            try {
-                // Get current path and build upload URL
-                const currentPath = window.location.pathname;
-                const basePath = currentPath.endsWith('/') ? currentPath : currentPath + '/';
-                const uploadUrl = basePath + 'upload';
-                
-                const response = await fetch(uploadUrl, {
-                    method: 'POST',
-                    body: formData
-                });
+                try {
+                    // Get current path and build upload URL
+                    const currentPath = window.location.pathname;
+                    const basePath = currentPath.endsWith('/') ? currentPath : currentPath + '/';
+                    const uploadUrl = basePath + 'upload';
+                    
+                    const response = await fetch(uploadUrl, {
+                        method: 'POST',
+                        body: formData
+                    });
 
-                const result = await response.json();
-                
-                // Hide loading
-                loading.style.display = 'none';
-                submitBtn.disabled = false;
+                    const result = await response.json();
+                    
+                    // Hide loading
+                    loading.style.display = 'none';
+                    submitBtn.disabled = false;
 
-                // Show response
-                responseArea.style.display = 'block';
-                
-                if (response.ok && result.success) {
-                    responseArea.className = 'response-area response-success';
-                    responseArea.innerHTML = `
-                        <h3>✅ Upload Successful!</h3>
-                        <p><strong>Message:</strong> ${result.message}</p>
-                        <h4>Track Information:</h4>
-                        <pre>${JSON.stringify(result.track, null, 2)}</pre>
-                        <h4>Metadata:</h4>
-                        <pre>${JSON.stringify(result.metadata, null, 2)}</pre>
-                    `;
-                } else {
+                    // Show response
+                    responseArea.style.display = 'block';
+                    
+                    if (response.ok && result.success) {
+                        responseArea.className = 'response-area response-success';
+                        responseArea.innerHTML = `
+                            <h3>✅ Upload Successful!</h3>
+                            <p><strong>Message:</strong> ${result.message}</p>
+                            <h4>Track Information:</h4>
+                            <pre>${JSON.stringify(result.track, null, 2)}</pre>
+                            <h4>Metadata:</h4>
+                            <pre>${JSON.stringify(result.metadata, null, 2)}</pre>
+                        `;
+                    } else {
+                        responseArea.className = 'response-area response-error';
+                        responseArea.innerHTML = `
+                            <h3>❌ Upload Failed</h3>
+                            <p><strong>Error:</strong> ${result.error || 'Unknown error occurred'}</p>
+                            <pre>${JSON.stringify(result, null, 2)}</pre>
+                        `;
+                    }
+                } catch (error) {
+                    // Hide loading
+                    loading.style.display = 'none';
+                    submitBtn.disabled = false;
+
+                    // Show error
+                    responseArea.style.display = 'block';
                     responseArea.className = 'response-area response-error';
                     responseArea.innerHTML = `
-                        <h3>❌ Upload Failed</h3>
-                        <p><strong>Error:</strong> ${result.error || 'Unknown error occurred'}</p>
-                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                        <h3>❌ Network Error</h3>
+                        <p><strong>Error:</strong> ${error.message}</p>
                     `;
                 }
-            } catch (error) {
-                // Hide loading
-                loading.style.display = 'none';
-                submitBtn.disabled = false;
-
-                // Show error
-                responseArea.style.display = 'block';
-                responseArea.className = 'response-area response-error';
-                responseArea.innerHTML = `
-                    <h3>❌ Network Error</h3>
-                    <p><strong>Error:</strong> ${error.message}</p>
-                `;
+                
             }
+           
         });
     </script>
 </body>
