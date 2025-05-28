@@ -116,11 +116,16 @@
             <div class="upload-area" id="uploadArea">
                 <p><strong>Drop FLAC file here or click to select</strong></p>
                 <p>Only .flac files are supported</p>
-                <input type="file" id="fileInput" class="file-input" accept=".flac"   webkitdirectory
+                <input type="file" id="fileInput" class="file-input" accept=".flac"  
                  required>
                 <button type="button" class="upload-btn" onclick="document.getElementById('fileInput').click()">
                     Choose File
                 </button>
+                <input type="file" id="folderInput" class="file-input" accept=".flac"   webkitdirectory directory multiple
+                required>
+               <button type="button" class="upload-btn" onclick="document.getElementById('folderInput').click()">
+                   Choose Folder
+               </button>
             </div>
             
             <div class="file-info" id="fileInfo"></div>
@@ -141,6 +146,8 @@
     <script>
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
+        const folderInput = document.getElementById('folderInput');
+
         const fileInfo = document.getElementById('fileInfo');
         const submitBtn = document.getElementById('submitBtn');
         const uploadForm = document.getElementById('uploadForm');
@@ -168,11 +175,15 @@
         });
 
         // File input change
+        folderInput.addEventListener('change', (e) => {
+            const files = e.target.files
+            handleFolderSelect(e.target.files);
+
+        });
         fileInput.addEventListener('change', (e) => {
             const files = e.target.files
-            for(let i = 1; i < files.length-1; i++) {
-                handleFileSelect(e.target.files[i]);
-            }
+            handleFileSelect(e.target.files[0]);
+
         });
 
         function handleFileSelect(file) {
@@ -198,28 +209,39 @@
             dt.items.add(file);
             fileInput.files = dt.files;
         }
-               function handleFileSelect(file) {
-            // Check file type
-            if (!file.name.toLowerCase().endsWith('.flac')) {
-                alert('Please select a FLAC file (.flac)');
-                return;
-            }
-
-            // Show file info
+        function handleFolderSelect(files) {
             fileInfo.style.display = 'block';
-            fileInfo.innerHTML = `
-                <strong>Selected file:</strong> ${file.name}<br>
-                <strong>Size:</strong> ${(file.size / 1024 / 1024).toFixed(2)} MB<br>
-                <strong>Type:</strong> ${file.type || 'audio/flac'}
-            `;
+            let content = `<div style="height: 200px; overflow-y: scroll;">`;
 
+            for (let i = 0; i < files.length; i++) {
+            if (files[i].name.toLowerCase().endsWith('.flac')) {
+                content += `
+                <div style="margin-bottom: 10px;">
+                    <strong>Selected file:</strong> ${files[i].name}<br>
+                    <strong>Size:</strong> ${(files[i].size / 1024 / 1024).toFixed(2)} MB<br>
+                    <strong>Type:</strong> ${files[i].type || 'audio/flac'}
+                </div>
+                `;
+            }
+        }
+
+content += `</div>`;
+fileInfo.innerHTML = content;
+
+           
             // Enable submit button
             submitBtn.disabled = false;
             
             // Set the file to the input
             const dt = new DataTransfer();
-            dt.items.add(file);
+            for(let i = 0; i < files.length; i++) {
+                const file = files[i];
+                if (file.name.toLowerCase().endsWith('.flac')) {
+                    dt.items.add(file);
+                }
+            }
             fileInput.files = dt.files;
+            console.log(fileInput.files)
         }
 
 
