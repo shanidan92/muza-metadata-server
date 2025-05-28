@@ -121,15 +121,11 @@
                 <p>Only .flac files are supported</p>
                
                 <input type="file" id="folderInput" class="folder-input" accept=".flac"   webkitdirectory directory multiple
-                required>
+                >
                <button type="button" class="upload-btn" onclick="document.getElementById('folderInput').click()">
                    Choose Folder
                </button>
-                <input type="file" id="fileInput" class="file-input" accept=".flac"  
-                 required>
-                <button type="button" class="upload-btn" onclick="document.getElementById('fileInput').click()">
-                    Choose File
-                </button>
+
             </div>
             
             <div class="file-info" id="fileInfo"></div>
@@ -149,7 +145,6 @@
 
     <script>
         const uploadArea = document.getElementById('uploadArea');
-        const fileInput = document.getElementById('fileInput');
         const folderInput = document.getElementById('folderInput');
 
         const fileInfo = document.getElementById('fileInfo');
@@ -184,36 +179,7 @@
             handleFolderSelect(e.target.files);
 
         });
-        fileInput.addEventListener('change', (e) => {
-            const files = e.target.files
-            console.log(files);
-            handleFileSelect(e.target.files[0]);
 
-        });
-
-        function handleFileSelect(file) {
-            // Check file type
-            if (!file.name.toLowerCase().endsWith('.flac')) {
-                alert('Please select a FLAC file (.flac)');
-                return;
-            }
-
-            // Show file info
-            fileInfo.style.display = 'block';
-            fileInfo.innerHTML = `
-                <strong>Selected file:</strong> ${file.name}<br>
-                <strong>Size:</strong> ${(file.size / 1024 / 1024).toFixed(2)} MB<br>
-                <strong>Type:</strong> ${file.type || 'audio/flac'}
-            `;
-
-            // Enable submit button
-            submitBtn.disabled = false;
-            
-            // Set the file to the input
-            const dt = new DataTransfer();
-            dt.items.add(file);
-            fileInput.files = dt.files;
-        }
         function handleFolderSelect(files) {
             fileInfo.style.display = 'block';
             let content = `<div style="height: 200px; overflow-y: scroll;">`;
@@ -245,7 +211,7 @@
                     dt.items.add(file);
                 }
             }
-            fileInput.files = dt.files;
+            folderInput.files = dt.files;
         }
 
 
@@ -253,7 +219,7 @@
         uploadForm.addEventListener('submit', async (e) => {
             console.log(e);
             e.preventDefault();            
-            const file = fileInput.files[0];
+            const file =folderInput.files[0];
             if (!file) {
                 alert('Please select a file first');
                 return;
