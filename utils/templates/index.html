@@ -42,6 +42,9 @@
         .file-input {
             display: none;
         }
+        .folder-input {
+            display: none;
+        }
         .upload-btn {
             background-color: #007bff;
             color: white;
@@ -116,16 +119,17 @@
             <div class="upload-area" id="uploadArea">
                 <p><strong>Drop FLAC file here or click to select</strong></p>
                 <p>Only .flac files are supported</p>
+               
+                <input type="file" id="folderInput" class="folder-input" accept=".flac"   webkitdirectory directory multiple
+                required>
+               <button type="button" class="upload-btn" onclick="document.getElementById('folderInput').click()">
+                   Choose Folder
+               </button>
                 <input type="file" id="fileInput" class="file-input" accept=".flac"  
                  required>
                 <button type="button" class="upload-btn" onclick="document.getElementById('fileInput').click()">
                     Choose File
                 </button>
-                <input type="file" id="folderInput" class="file-input" accept=".flac"   webkitdirectory directory multiple
-                required>
-               <button type="button" class="upload-btn" onclick="document.getElementById('folderInput').click()">
-                   Choose Folder
-               </button>
             </div>
             
             <div class="file-info" id="fileInfo"></div>
@@ -182,7 +186,8 @@
         });
         fileInput.addEventListener('change', (e) => {
             const files = e.target.files
-            handleFileSelect(e.target.files);
+            console.log(files);
+            handleFileSelect(e.target.files[0]);
 
         });
 
@@ -246,6 +251,7 @@
 
         // Form submission
         uploadForm.addEventListener('submit', async (e) => {
+            console.log(e);
             e.preventDefault();            
             const file = fileInput.files[0];
             if (!file) {
