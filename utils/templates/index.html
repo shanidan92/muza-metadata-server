@@ -182,7 +182,7 @@
         });
         fileInput.addEventListener('change', (e) => {
             const files = e.target.files
-            handleFileSelect(e.target.files[0]);
+            handleFileSelect(e.target.files);
 
         });
 
@@ -214,19 +214,19 @@
             let content = `<div style="height: 200px; overflow-y: scroll;">`;
 
             for (let i = 0; i < files.length; i++) {
-            if (files[i].name.toLowerCase().endsWith('.flac')) {
-                content += `
-                <div style="margin-bottom: 10px;">
-                    <strong>Selected file:</strong> ${files[i].name}<br>
-                    <strong>Size:</strong> ${(files[i].size / 1024 / 1024).toFixed(2)} MB<br>
-                    <strong>Type:</strong> ${files[i].type || 'audio/flac'}
-                </div>
-                `;
+                if (files[i].name.toLowerCase().endsWith('.flac')) {
+                    content += `
+                    <div style="margin-bottom: 10px;">
+                        <strong>Selected file:</strong> ${files[i].name}<br>
+                        <strong>Size:</strong> ${(files[i].size / 1024 / 1024).toFixed(2)} MB<br>
+                        <strong>Type:</strong> ${files[i].type || 'audio/flac'}
+                    </div>
+                    `;
+                }
             }
-        }
 
-content += `</div>`;
-fileInfo.innerHTML = content;
+            content += `</div>`;
+            fileInfo.innerHTML = content;
 
            
             // Enable submit button
@@ -241,15 +241,12 @@ fileInfo.innerHTML = content;
                 }
             }
             fileInput.files = dt.files;
-            console.log(fileInput.files)
         }
 
 
         // Form submission
         uploadForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            console.log(fileInput.files)
-            
+            e.preventDefault();            
             const file = fileInput.files[0];
             if (!file) {
                 alert('Please select a file first');
