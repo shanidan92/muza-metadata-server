@@ -287,6 +287,8 @@
                             <h4>Metadata:</h4>
                             <pre>${JSON.stringify(result.metadata, null, 2)}</pre>
                         `;
+                        loading.querySelector("p").innerHTML = `Processing FLAC file... (${++counter}/${numFiles})`;
+
                     } else {
                         responseArea.className = 'response-area response-error';
                         responseArea.innerHTML = `
@@ -294,7 +296,6 @@
                             <p><strong>Error:</strong> ${result.error || 'Unknown error occurred'}</p>
                             <pre>${JSON.stringify(result, null, 2)}</pre>
                         `;
-                        loading.querySelector("p").innerHTML = `Processing FLAC file... (${++counter}/${numFiles})`;
                     }
                 } catch (error) {
                     // Hide loading
