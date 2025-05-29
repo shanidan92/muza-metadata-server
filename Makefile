@@ -11,6 +11,19 @@ IMAGE_NAME := muza-metadata-server
 IMAGE_TAG := latest
 REGISTRY := quay.io/yaacov
 
+# Detect OS for cross-platform support
+ifeq ($(OS),Windows_NT)
+    VENV_ACTIVATE := $(VENV_DIR)\Scripts\activate.bat
+    PYTHON := python
+    PIP := pip
+    RM := del /q
+    RMDIR := rmdir /s /q
+else
+    VENV_ACTIVATE := . $(VENV_DIR)/bin/activate
+    RM := rm -f
+    RMDIR := rm -rf
+endif
+
 .PHONY: help
 help:
 	@echo "Muza Metadata Server Make Commands"
@@ -34,6 +47,11 @@ help:
 	@echo "  make container-push - Push container to registry"
 	@echo "  make container-clean - Remove container image"
 	@echo ""
+	@echo "Windows Commands:"
+	@echo "  make install-win    - Install dependencies (Windows)"
+	@echo "  make run-dev-win    - Run development server (Windows)"
+	@echo "  make clean-win      - Clean build artifacts (Windows)"
+	@echo ""
 	@echo "Cleanup Commands:"
 	@echo "  make clean          - Remove build artifacts and virtual environment"
 
@@ -43,9 +61,17 @@ venv:
 
 .PHONY: install
 install: venv
-	. $(VENV_DIR)/bin/activate && \
-	$(PIP) install -r requirements.txt
+ifeq ($(OS),Windows_NT)
+	$(VENV_DIR)\Scripts\activate.bat && $(PIP) install -r requirements.txt
+else
+	. $(VENV_DIR)/bin/activate && $(PIP) install -r requirements.txt
+endif
 
+# Windows-specific targets
+.PHONY: install-win
+install-win:
+	$(PYTHON) -m venv $(VENV_DIR)
+	$(VENV_DIR)\Scripts\activate.bat && $(PIP) install -r requirements.txt
 
 .PHONY: run-dev
 run-dev:
@@ -134,3 +160,23 @@ lint:
 run-uploader:
 	. $(VENV_DIR)/bin/activate && \
 	$(PYTHON) -m utils.uploader $(ARGS)
+
+# Windows-specific targets
+.PHONY: run-dev-win
+run-dev-win:
+	$(VENV_DIR)\Scripts\activate.bat && $(PYTHON) run_dev.py $(ARGS)
+
+.PHONY: run-uploader-win
+run-uploader-win:
+	$(VENV_DIR)\Scripts\activate.bat && $(PYTHON) -m utils.uploader $(ARGS)
+
+.PHONY: clean-win
+clean-win:
+	if exist $(VENV_DIR) $(RMDIR) $(VENV_DIR)
+	if exist *.egg-info $(RMDIR) *.egg-info
+	if exist dist $(RMDIR) dist
+	if exist build $(RMDIR) build
+	if exist data $(RMDIR) data
+	if exist certs $(RMDIR) certs
+	if exist *.db $(RM) *.db
+	if exist *.pyc $(RM) *.pyc
