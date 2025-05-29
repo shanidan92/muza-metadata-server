@@ -120,11 +120,18 @@
                 <p><strong>Drop FLAC file here or click to select</strong></p>
                 <p>Only .flac files are supported</p>
                
-                <input type="file" id="folderInput" class="folder-input" accept=".flac"   webkitdirectory directory multiple
+                <input type="file" id="folderInput" class="folder-input" accept=".flac"  multiple webkitdirectory
                 >
                <button type="button" class="upload-btn" onclick="document.getElementById('folderInput').click()">
                    Choose Folder
                </button>
+
+
+               <input type="file" id="fileInput" class="folder-input" accept=".flac"  multiple 
+               >
+              <button type="button" class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                  Choose Files
+              </button>
 
             </div>
             
@@ -146,6 +153,8 @@
     <script>
         const uploadArea = document.getElementById('uploadArea');
         const folderInput = document.getElementById('folderInput');
+        const filesInput = document.getElementById('filesInput');
+
 
         const fileInfo = document.getElementById('fileInfo');
         const submitBtn = document.getElementById('submitBtn');
@@ -166,15 +175,27 @@
         uploadArea.addEventListener('drop', (e) => {
             e.preventDefault();
             uploadArea.classList.remove('dragover');
+            const items = e.dataTransfer;
+            console.log(items);
+
             
             const files = e.dataTransfer.files;
+            
             if (files.length > 0) {
-                handleFileSelect(files[0]);
+                handleFolderSelect(files);
             }
         });
 
         // File input change
         folderInput.addEventListener('change', (e) => {
+            
+            const files = e.target.files
+
+            handleFolderSelect(e.target.files);
+
+        });
+
+        fileInput.addEventListener('change', (e) => {
             const files = e.target.files
             handleFolderSelect(e.target.files);
 
