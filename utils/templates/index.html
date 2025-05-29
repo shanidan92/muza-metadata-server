@@ -238,7 +238,9 @@
 
         // Form submission
         uploadForm.addEventListener('submit', async (e) => {
-            e.preventDefault();        
+            e.preventDefault();  
+            const numFiles = folderInput.files.length; 
+            var counter = 0;     
             for (let i = 0; i < folderInput.files.length; i++) {
                 const file =folderInput.files[i];
                 if (!file) {
@@ -292,6 +294,7 @@
                             <p><strong>Error:</strong> ${result.error || 'Unknown error occurred'}</p>
                             <pre>${JSON.stringify(result, null, 2)}</pre>
                         `;
+                        loading.querySelector("p").innerHTML = `Processing FLAC file... (${++counter}/${numFiles})`;
                     }
                 } catch (error) {
                     // Hide loading
