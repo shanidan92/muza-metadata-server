@@ -1,6 +1,6 @@
 import logging
 import os
-from flask import Flask, request, jsonify, send_from_directory, render_template
+from flask import Flask, request, jsonify, send_from_directory, render_template, redirect, url_for
 from werkzeug.exceptions import RequestEntityTooLarge
 from .config import Config
 from .file_handler import FileHandler
@@ -39,6 +39,11 @@ def create_app(config: Config = None) -> Flask:
     
     @app.route('/', methods=['GET'])
     def index():
+        """Redirect to the upload interface"""
+        return redirect('/index.html')
+    
+    @app.route('/index.html', methods=['GET'])
+    def upload_interface():
         """Serve the upload interface"""
         return render_template('index.html')
 
