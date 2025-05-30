@@ -40,7 +40,7 @@ def create_app(config: Config = None) -> Flask:
     @app.route('/', methods=['GET'])
     def index():
         """Redirect to the upload interface"""
-        return redirect('/index.html')
+        return redirect('index.html')
     
     @app.route('/index.html', methods=['GET'])
     def upload_interface():
