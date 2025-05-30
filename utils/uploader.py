@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 def create_app(config: Config = None) -> Flask:
     """Create and configure Flask application"""
-    app = Flask(__name__, template_folder='templates')
+    app = Flask(__name__, template_folder='templates', static_folder='static')
     
     # Load configuration
     if config is None:
