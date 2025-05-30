@@ -42,6 +42,9 @@
         .file-input {
             display: none;
         }
+        .folder-input {
+            display: none;
+        }
         .upload-btn {
             background-color: #007bff;
             color: white;
@@ -116,10 +119,20 @@
             <div class="upload-area" id="uploadArea">
                 <p><strong>Drop FLAC file here or click to select</strong></p>
                 <p>Only .flac files are supported</p>
-                <input type="file" id="fileInput" class="file-input" accept=".flac" required>
-                <button type="button" class="upload-btn" onclick="document.getElementById('fileInput').click()">
-                    Choose File
-                </button>
+               
+                <input type="file" id="folderInput" class="folder-input" accept=".flac"  multiple webkitdirectory
+                >
+               <button type="button" class="upload-btn" onclick="document.getElementById('folderInput').click()">
+                   Choose Folder
+               </button>
+
+
+               <input type="file" id="fileInput" class="folder-input" accept=".flac"  multiple 
+               >
+              <button type="button" class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                  Choose Files
+              </button>
+
             </div>
             
             <div class="file-info" id="fileInfo"></div>
@@ -139,7 +152,10 @@
 
     <script>
         const uploadArea = document.getElementById('uploadArea');
-        const fileInput = document.getElementById('fileInput');
+        const folderInput = document.getElementById('folderInput');
+        const filesInput = document.getElementById('filesInput');
+
+
         const fileInfo = document.getElementById('fileInfo');
         const submitBtn = document.getElementById('submitBtn');
         const uploadForm = document.getElementById('uploadForm');
@@ -159,114 +175,144 @@
         uploadArea.addEventListener('drop', (e) => {
             e.preventDefault();
             uploadArea.classList.remove('dragover');
+            const items = e.dataTransfer;
+            console.log(items);
+
             
             const files = e.dataTransfer.files;
+            
             if (files.length > 0) {
-                handleFileSelect(files[0]);
+                handleFolderSelect(files);
             }
         });
 
         // File input change
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                handleFileSelect(e.target.files[0]);
-            }
+        folderInput.addEventListener('change', (e) => {
+            
+            const files = e.target.files
+
+            handleFolderSelect(e.target.files);
+
         });
 
-        function handleFileSelect(file) {
-            // Check file type
-            if (!file.name.toLowerCase().endsWith('.flac')) {
-                alert('Please select a FLAC file (.flac)');
-                return;
+        fileInput.addEventListener('change', (e) => {
+            const files = e.target.files
+            handleFolderSelect(e.target.files);
+
+        });
+
+        function handleFolderSelect(files) {
+            fileInfo.style.display = 'block';
+            let content = `<div style="height: 200px; overflow-y: scroll;">`;
+
+            for (let i = 0; i < files.length; i++) {
+                if (files[i].name.toLowerCase().endsWith('.flac')) {
+                    content += `
+                    <div style="margin-bottom: 10px;">
+                        <strong>Selected file:</strong> ${files[i].name}<br>
+                        <strong>Size:</strong> ${(files[i].size / 1024 / 1024).toFixed(2)} MB<br>
+                        <strong>Type:</strong> ${files[i].type || 'audio/flac'}
+                    </div>
+                    `;
+                }
             }
 
-            // Show file info
-            fileInfo.style.display = 'block';
-            fileInfo.innerHTML = `
-                <strong>Selected file:</strong> ${file.name}<br>
-                <strong>Size:</strong> ${(file.size / 1024 / 1024).toFixed(2)} MB<br>
-                <strong>Type:</strong> ${file.type || 'audio/flac'}
-            `;
+            content += `</div>`;
+            fileInfo.innerHTML = content;
 
+           
             // Enable submit button
             submitBtn.disabled = false;
             
             // Set the file to the input
             const dt = new DataTransfer();
-            dt.items.add(file);
-            fileInput.files = dt.files;
+            for(let i = 0; i < files.length; i++) {
+                const file = files[i];
+                if (file.name.toLowerCase().endsWith('.flac')) {
+                    dt.items.add(file);
+                }
+            }
+            folderInput.files = dt.files;
         }
+
 
         // Form submission
         uploadForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const file = fileInput.files[0];
-            if (!file) {
-                alert('Please select a file first');
-                return;
-            }
+            e.preventDefault();  
+            const numFiles = folderInput.files.length; 
+            var counter = 0;     
+            for (let i = 0; i < folderInput.files.length; i++) {
+                const file =folderInput.files[i];
+                if (!file) {
+                    alert('Please select a file first');
+                    return;
+                }
 
-            // Show loading
-            loading.style.display = 'block';
-            responseArea.style.display = 'none';
-            submitBtn.disabled = true;
+                // Show loading
+                loading.style.display = 'block';
+                responseArea.style.display = 'none';
+                submitBtn.disabled = true;
 
-            // Create form data
-            const formData = new FormData();
-            formData.append('file', file);
+                // Create form data
+                const formData = new FormData();
+                formData.append('file', file);
 
-            try {
-                // Get current path and build upload URL
-                const currentPath = window.location.pathname;
-                const basePath = currentPath.endsWith('/') ? currentPath : currentPath + '/';
-                const uploadUrl = basePath + 'upload';
-                
-                const response = await fetch(uploadUrl, {
-                    method: 'POST',
-                    body: formData
-                });
+                try {
+                    // Get current path and build upload URL
+                    const currentPath = window.location.pathname;
+                    const basePath = currentPath.endsWith('/') ? currentPath : currentPath + '/';
+                    const uploadUrl = basePath + 'upload';
+                    
+                    const response = await fetch(uploadUrl, {
+                        method: 'POST',
+                        body: formData
+                    });
 
-                const result = await response.json();
-                
-                // Hide loading
-                loading.style.display = 'none';
-                submitBtn.disabled = false;
+                    const result = await response.json();
+                    
+                    // Hide loading
+                    loading.style.display = 'none';
+                    submitBtn.disabled = false;
 
-                // Show response
-                responseArea.style.display = 'block';
-                
-                if (response.ok && result.success) {
-                    responseArea.className = 'response-area response-success';
-                    responseArea.innerHTML = `
-                        <h3>✅ Upload Successful!</h3>
-                        <p><strong>Message:</strong> ${result.message}</p>
-                        <h4>Track Information:</h4>
-                        <pre>${JSON.stringify(result.track, null, 2)}</pre>
-                        <h4>Metadata:</h4>
-                        <pre>${JSON.stringify(result.metadata, null, 2)}</pre>
-                    `;
-                } else {
+                    // Show response
+                    responseArea.style.display = 'block';
+                    
+                    if (response.ok && result.success) {
+                        responseArea.className = 'response-area response-success';
+                        responseArea.innerHTML = `
+                            <h3>✅ Upload Successful!</h3>
+                            <p><strong>Message:</strong> ${result.message}</p>
+                            <h4>Track Information:</h4>
+                            <pre>${JSON.stringify(result.track, null, 2)}</pre>
+                            <h4>Metadata:</h4>
+                            <pre>${JSON.stringify(result.metadata, null, 2)}</pre>
+                        `;
+                        loading.querySelector("p").innerHTML = `Processing FLAC file... (${++counter}/${numFiles})`;
+
+                    } else {
+                        responseArea.className = 'response-area response-error';
+                        responseArea.innerHTML = `
+                            <h3>❌ Upload Failed</h3>
+                            <p><strong>Error:</strong> ${result.error || 'Unknown error occurred'}</p>
+                            <pre>${JSON.stringify(result, null, 2)}</pre>
+                        `;
+                    }
+                } catch (error) {
+                    // Hide loading
+                    loading.style.display = 'none';
+                    submitBtn.disabled = false;
+
+                    // Show error
+                    responseArea.style.display = 'block';
                     responseArea.className = 'response-area response-error';
                     responseArea.innerHTML = `
-                        <h3>❌ Upload Failed</h3>
-                        <p><strong>Error:</strong> ${result.error || 'Unknown error occurred'}</p>
-                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                        <h3>❌ Network Error</h3>
+                        <p><strong>Error:</strong> ${error.message}</p>
                     `;
                 }
-            } catch (error) {
-                // Hide loading
-                loading.style.display = 'none';
-                submitBtn.disabled = false;
-
-                // Show error
-                responseArea.style.display = 'block';
-                responseArea.className = 'response-area response-error';
-                responseArea.innerHTML = `
-                    <h3>❌ Network Error</h3>
-                    <p><strong>Error:</strong> ${error.message}</p>
-                `;
+                
             }
+           
         });
     </script>
 </body>
