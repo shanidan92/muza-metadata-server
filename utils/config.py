@@ -4,7 +4,8 @@ from dataclasses import dataclass
 
 @dataclass
 class Config:
-    upload_dir: str = "downloads"
+    audio_upload_dir: str = "downloads/audio"
+    image_upload_dir: str = "downloads/images"
     muza_server_url: str = "http://localhost:5000/graphql"
     musicbrainz_app_name: str = "MuzaUtils"
     musicbrainz_app_version: str = "1.0"
@@ -15,8 +16,10 @@ class Config:
     @classmethod
     def from_env(cls):
         """Create Config from environment variables"""
+        upload_dir = os.getenv("UPLOAD_DIR", "downloads")
         return cls(
-            upload_dir=os.getenv("UPLOAD_DIR", "downloads"),
+            audio_upload_dir=os.getenv("AUDIO_UPLOAD_DIR", f"downloads/audio"),
+            image_upload_dir=os.getenv("IMAGE_UPLOAD_DIR", f"downloads/images"),
             muza_server_url=os.getenv("MUZA_SERVER_URL", "http://localhost:5000/graphql"),
             musicbrainz_app_name=os.getenv("MUSICBRAINZ_APP_NAME", "MuzaUtils"),
             musicbrainz_app_version=os.getenv("MUSICBRAINZ_APP_VERSION", "1.0"),

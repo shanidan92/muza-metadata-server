@@ -11,23 +11,26 @@ logger = logging.getLogger(__name__)
 class FileHandler:
     """Handle file uploads and downloads"""
     
-    def __init__(self, upload_dir: str):
+    def __init__(self, audio_upload_dir: str, image_upload_dir: str):
         """
         Initialize file handler
         
         Args:
-            upload_dir: Directory for storing uploaded files
+            audio_upload_dir: Directory for storing audio files
+            image_upload_dir: Directory for storing image files
         """
-        self.upload_dir = upload_dir
+        self.audio_upload_dir = audio_upload_dir
+        self.image_upload_dir = image_upload_dir
         self.allowed_extensions = {'.flac'}
         self.image_extensions = {'.jpg', '.jpeg', '.png', '.webp'}
         
-        # Create upload directory if it doesn't exist
-        os.makedirs(upload_dir, exist_ok=True)
+        # Create upload directories if they don't exist
+        os.makedirs(audio_upload_dir, exist_ok=True)
+        os.makedirs(image_upload_dir, exist_ok=True)
     
     def save_uploaded_file(self, file, original_filename: str) -> Tuple[str, str]:
         """
-        Save uploaded file to upload directory
+        Save uploaded file to appropriate upload directory
         
         Args:
             file: Flask file object
@@ -46,16 +49,19 @@ class FileHandler:
         file_ext = os.path.splitext(original_filename)[1].lower()
         unique_filename = f"{uuid.uuid4()}{file_ext}"
         
-        # Save file
-        file_path = os.path.join(self.upload_dir, unique_filename)
+        # Save to audio directory
+        file_path = os.path.join(self.audio_upload_dir, unique_filename)
         file.save(file_path)
         
+        # Return relative path including subdirectory
+        relative_path = f"audio/{unique_filename}"
+        
         logger.info(f"Saved uploaded file: {file_path}")
-        return file_path, unique_filename
+        return file_path, relative_path
     
     def download_album_cover(self, cover_url: str, album_title: str) -> Optional[str]:
         """
-        Download album cover from URL
+        Download album cover from URL to image directory
         
         Args:
             cover_url: URL to download cover from
@@ -83,7 +89,7 @@ class FileHandler:
             # Create filename
             safe_album_title = secure_filename(album_title) or "unknown_album"
             filename = f"cover_{safe_album_title}_{uuid.uuid4()}{ext}"
-            file_path = os.path.join(self.upload_dir, filename)
+            file_path = os.path.join(self.image_upload_dir, filename)
             
             # Save file
             with open(file_path, 'wb') as f:
@@ -92,7 +98,8 @@ class FileHandler:
             # Basic validation - check if file was written and has reasonable size
             if os.path.exists(file_path) and os.path.getsize(file_path) > 1024:  # At least 1KB
                 logger.info(f"Downloaded album cover: {filename}")
-                return filename
+                # Return relative path including subdirectory
+                return f"images/{filename}"
             else:
                 logger.error("Downloaded file is too small or doesn't exist")
                 if os.path.exists(file_path):

@@ -1,6 +1,6 @@
 import logging
 import os
-from flask import Flask, request, jsonify, send_from_directory, render_template, redirect, url_for
+from flask import Flask, request, jsonify, send_from_directory, render_template, redirect
 from werkzeug.exceptions import RequestEntityTooLarge
 from .config import Config
 from .file_handler import FileHandler
@@ -28,7 +28,7 @@ def create_app(config: Config = None) -> Flask:
     app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB max file size
     
     # Initialize components
-    file_handler = FileHandler(config.upload_dir)
+    file_handler = FileHandler(config.audio_upload_dir, config.image_upload_dir)
     metadata_extractor = MetadataExtractor()
     mb_client = MusicBrainzClient(
         config.musicbrainz_app_name,
@@ -36,9 +36,9 @@ def create_app(config: Config = None) -> Flask:
         config.musicbrainz_contact
     )
     muza_client = MuzaClient(config.muza_server_url)
-        
+    
     @app.route('/', methods=['GET'])
-    def upload_interface():
+    def index():
         """Serve the upload interface"""
         return render_template('index.html')
 
@@ -100,12 +100,24 @@ def create_app(config: Config = None) -> Flask:
     
     @app.route('/files/<path:filename>', methods=['GET'])
     def serve_file(filename):
-        """Serve uploaded files"""
+        """Serve uploaded files from appropriate directory"""
         try:
-            file_path = os.path.join(config.upload_dir, filename)            
-            return send_from_directory(os.getcwd(), file_path)
+            # Determine which directory to serve from based on path
+            if filename.startswith('audio/'):
+                # Serve from audio directory
+                actual_filename = filename[6:]  # Remove 'audio/' prefix
+                return send_from_directory(config.audio_upload_dir, actual_filename)
+            elif filename.startswith('images/'):
+                # Serve from image directory
+                actual_filename = filename[7:]  # Remove 'images/' prefix
+                return send_from_directory(config.image_upload_dir, actual_filename)
+            else:
+                # Invalid path format
+                logger.error(f"Invalid file path format: {filename}")
+                return jsonify({"error": "Invalid file path format"}), 400
+                    
         except FileNotFoundError:
-            logger.error(f"File not found: {filename} in directory: {config.upload_dir}")
+            logger.error(f"File not found: {filename}")
             return jsonify({"error": "File not found"}), 404
     
     @app.errorhandler(413)
@@ -181,9 +193,10 @@ def main():
     app = create_app(config)
     
     logger.info(f"Starting Muza Utils API on port {config.port}")
-    logger.info(f"Upload directory: {config.upload_dir}")
+    logger.info(f"Audio upload directory: {config.audio_upload_dir}")
+    logger.info(f"Image upload directory: {config.image_upload_dir}")
     logger.info(f"Muza server URL: {config.muza_server_url}")
-    
+
     app.run(host='0.0.0.0', port=config.port, debug=config.debug)
 
 
