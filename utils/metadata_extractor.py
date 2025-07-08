@@ -1,7 +1,8 @@
 import logging
 from typing import Dict, Optional
 from mutagen.flac import FLAC
-from mutagen import MutagenError
+from mutagen import MutagenError 
+from file_handler import FileHandler
 
 logger = logging.getLogger(__name__)
 
@@ -9,7 +10,7 @@ logger = logging.getLogger(__name__)
 class MetadataExtractor:
     """Extract metadata from FLAC files"""
     
-    def extract_from_flac(self, file_path: str) -> Dict[str, Optional[str]]:
+    def extract_from_flac(self, file_path: str , file_handler: FileHandler) -> Dict[str, Optional[str]]:
         """
         Extract metadata from FLAC file
         
@@ -24,8 +25,11 @@ class MetadataExtractor:
             if audio is None:
                 logger.error(f"Could not read FLAC file: {file_path}")
                 return {}
-            
+             
+            cover_path = self.extract_flac_cover_art(audio , file_handler)
+
             metadata = {
+                "duration_seconds": int(audio.info.length),
                 "song_title": self._get_tag(audio, "TITLE"),
                 "artist_main": self._get_tag(audio, "ARTIST"),
                 "album_title": self._get_tag(audio, "ALBUM"),
@@ -36,11 +40,13 @@ class MetadataExtractor:
                 "year_released": self._get_year(audio, "ORIGINALDATE"),
                 "song_order": self._get_track_number(audio),
                 "instrument": self._get_tag(audio, "INSTRUMENT"),
+                "comments": self._get_tag(audio, "COMMENT"),
                 "other_artist_playing": self._get_tag(audio, "PERFORMER"),
                 "musicbrainz_track_id": self._get_tag(audio, "MUSICBRAINZ_TRACKID"),
                 "musicbrainz_album_id": self._get_tag(audio, "MUSICBRAINZ_ALBUMID"),
                 "musicbrainz_artist_id": self._get_tag(audio, "MUSICBRAINZ_ARTISTID"),
             }
+            logger.info(metadata)
             
             # Clean up None values
             return {k: v for k, v in metadata.items() if v is not None}
@@ -59,6 +65,27 @@ class MetadataExtractor:
             return str(values[0]).strip()
         return None
     
+    def extract_flac_cover_art(self, audio: FLAC, file_handler: FileHandler):
+        """
+        Extracts the front cover art from a FLAC file and saves it as an image.
+
+        Args:
+            file_path (str): The path to the FLAC file.
+            output_image_path (str): The path where the extracted image will be saved.
+        """
+        try:  
+            # Iterate through embedded pictures
+            for pic in audio.pictures: 
+                file_name = 'cover_' + self._get_tag(audio, "ARTIST")+'_'+self._get_tag(audio, "ALBUM")
+                file_name= file_name.replace(' ' , '_') +'.jpg'
+                relative_path = file_handler.save_album_cover_from_flac(pic.data, file_name)
+                return relative_path
+                     
+            print("No front cover art found in the FLAC file.")
+
+        except Exception as e:
+            print(f"Error extracting cover art: {e}")
+
     def _get_year(self, audio: FLAC, tag: str) -> Optional[int]:
         """Extract year from date tag"""
         date_str = self._get_tag(audio, tag)

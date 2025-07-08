@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 Base = declarative_base()
@@ -39,15 +40,25 @@ class MusicTrack(Base):
 
     # Song information
     song_order = Column(Integer, nullable=True)
+    duration_seconds = Column(Integer, nullable=True)
     song_title = Column(String(255), nullable=False, index=True)
     composer = Column(String(255), nullable=True, index=True)
     song_file = Column(Text, nullable=True)
+    comments = Column(String(255) , nullable=True)
 
     # MusicBrainz integration
     musicbrainz_track_id = Column(String(36), nullable=True, index=True)
+    
+    # Foreign key relationships
+    artist_id = Column(Integer, ForeignKey('artists.id'), nullable=True)
+    album_id = Column(Integer, ForeignKey('albums.id'), nullable=True)
 
     # Timestamp
     created_at = Column(String(32), nullable=True)
+    
+    # Relationships
+    artist = relationship("Artist", back_populates="tracks")
+    album = relationship("Album", back_populates="tracks")
 
     def to_dict(self):
         """
@@ -71,9 +82,13 @@ class MusicTrack(Base):
             "year_released": self.year_released,
             "song_order": self.song_order,
             "song_title": self.song_title,
+            "duration_seconds": self.duration_seconds,
             "composer": self.composer,
             "song_file": self.song_file,
+            "comments": self.comments,
             "musicbrainz_track_id": self.musicbrainz_track_id,
+            "artist_id": self.artist_id,
+            "album_id": self.album_id,
             "created_at": self.created_at,
         }
 

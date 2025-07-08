@@ -66,7 +66,7 @@ def create_app(config: Config = None) -> Flask:
                 return jsonify({"error": str(e)}), 400
             
             # Extract metadata from FLAC
-            flac_metadata = metadata_extractor.extract_from_flac(file_path)
+            flac_metadata = metadata_extractor.extract_from_flac(file_path, file_handler)
             if not flac_metadata:
                 return jsonify({"error": "Could not extract metadata from FLAC file"}), 400
             
@@ -102,8 +102,9 @@ def create_app(config: Config = None) -> Flask:
     def serve_file(filename):
         """Serve uploaded files"""
         try:
-            file_path = os.path.join(config.upload_dir, filename)            
-            return send_from_directory(os.getcwd(), file_path)
+            # Use absolute path for upload directory to ensure cross-platform compatibility
+            upload_dir_abs = os.path.abspath(config.upload_dir)
+            return send_from_directory(upload_dir_abs, filename)
         except FileNotFoundError:
             logger.error(f"File not found: {filename} in directory: {config.upload_dir}")
             return jsonify({"error": "File not found"}), 404

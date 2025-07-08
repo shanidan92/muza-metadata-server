@@ -3,7 +3,9 @@ from typing import Dict, List, Optional
 from sqlalchemy import create_engine, and_, or_, func
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
-from .models import Base, MusicTrack
+from .models.music_track import Base, MusicTrack
+from .models.artist import Artist
+from .models.album import Album
 
 logger = logging.getLogger(__name__)
 
@@ -461,6 +463,88 @@ class Database:
 
         except SQLAlchemyError as e:
             logger.error(f"Database error in search_artists: {str(e)}")
+            raise
+        finally:
+            session.close()
+    
+    def insert_artist(self, artist_data: Dict) -> Dict:
+        """Insert a new artist into the database."""
+        required_fields = ["uuid", "name"]
+        missing_fields = [field for field in required_fields if not artist_data.get(field)]
+        if missing_fields:
+            error_msg = f"Missing required fields: {', '.join(missing_fields)}"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
+        session = self.get_session()
+        try:
+            existing_artist = session.query(Artist).filter(Artist.uuid == artist_data["uuid"]).first()
+            if existing_artist:
+                error_msg = f"Artist with UUID {artist_data['uuid']} already exists"
+                logger.error(error_msg)
+                raise ValueError(error_msg)
+
+            artist = Artist(**artist_data)
+            session.add(artist)
+            session.commit()
+            session.refresh(artist)
+            return artist.to_dict()
+        except (SQLAlchemyError, ValueError) as e:
+            logger.error(f"Error in insert_artist: {str(e)}")
+            session.rollback()
+            raise
+        finally:
+            session.close()
+    
+    def insert_album(self, album_data: Dict) -> Dict:
+        """Insert a new album into the database."""
+        required_fields = ["uuid", "title"]
+        missing_fields = [field for field in required_fields if not album_data.get(field)]
+        if missing_fields:
+            error_msg = f"Missing required fields: {', '.join(missing_fields)}"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
+        session = self.get_session()
+        try:
+            existing_album = session.query(Album).filter(Album.uuid == album_data["uuid"]).first()
+            if existing_album:
+                error_msg = f"Album with UUID {album_data['uuid']} already exists"
+                logger.error(error_msg)
+                raise ValueError(error_msg)
+
+            album = Album(**album_data)
+            session.add(album)
+            session.commit()
+            session.refresh(album)
+            return album.to_dict()
+        except (SQLAlchemyError, ValueError) as e:
+            logger.error(f"Error in insert_album: {str(e)}")
+            session.rollback()
+            raise
+        finally:
+            session.close()
+    
+    def fetch_all_artists(self) -> List[Dict]:
+        """Retrieve all artists from the database."""
+        session = self.get_session()
+        try:
+            artists = session.query(Artist).all()
+            return [artist.to_dict() for artist in artists]
+        except SQLAlchemyError as e:
+            logger.error(f"Database error in fetch_all_artists: {str(e)}")
+            raise
+        finally:
+            session.close()
+    
+    def fetch_all_albums(self) -> List[Dict]:
+        """Retrieve all albums from the database."""
+        session = self.get_session()
+        try:
+            albums = session.query(Album).all()
+            return [album.to_dict() for album in albums]
+        except SQLAlchemyError as e:
+            logger.error(f"Database error in fetch_all_albums: {str(e)}")
             raise
         finally:
             session.close()

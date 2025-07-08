@@ -53,6 +53,17 @@ class FileHandler:
         logger.info(f"Saved uploaded file: {file_path}")
         return file_path, unique_filename
     
+    def save_album_cover_from_flac(self , file , filename):
+        file_path = os.path.join(self.upload_dir, filename)
+
+        with open(file_path, 'wb') as f:
+            f.write(file)
+        
+        # Basic validation
+        if os.path.exists(file_path): 
+            logger.info(f"Downloaded album cover: {filename}")
+            return filename 
+
     def download_album_cover(self, cover_url: str, album_title: str) -> Optional[str]:
         """
         Download album cover from URL
@@ -111,6 +122,7 @@ class FileHandler:
         if not filename:
             return False
         ext = os.path.splitext(filename)[1].lower()
+        logger.info(ext in self.allowed_extensions)
         return ext in self.allowed_extensions
     
     def get_file_url(self, relative_path: str, base_url: str) -> str:

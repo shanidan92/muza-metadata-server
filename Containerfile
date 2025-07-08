@@ -11,7 +11,6 @@ COPY README.md .
 
 # Copy the application code
 COPY muza_metadata_server/ muza_metadata_server/
-COPY schema.sql .
 
 # Copy and make the run script executable
 COPY run.sh .
