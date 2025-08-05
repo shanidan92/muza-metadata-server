@@ -44,7 +44,7 @@ ENV PYTHONUNBUFFERED=1 \
     DEBUG=false \
     HOOK_COMMAND="" \
     AUDIO_UPLOAD_DIR=/data/audio \
-    IMAGE_UPLOAD_DIR=/data/images \
+    IMAGE_UPLOAD_DIR=/data/images
 
 # Health check for the main API
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
