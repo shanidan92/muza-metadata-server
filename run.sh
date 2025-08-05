@@ -33,6 +33,7 @@ try:
     print('✅ Database connection successful')
 except Exception as e:
     print(f'❌ Database connection failed: {e}')
+    print(f'Database URL: {config.database_url}')
     exit(1)
 "
 

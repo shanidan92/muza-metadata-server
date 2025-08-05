@@ -128,44 +128,44 @@ jobs:
           service: ${{ vars.ECS_SERVICE_ADMIN }}
           cluster: ${{ vars.ECS_CLUSTER }}
 
-      - name: Wait for deployments to complete
-        run: |
-          echo "⏳ Waiting for API deployment to complete..."
-          aws ecs wait services-stable \
-            --cluster ${{ vars.ECS_CLUSTER }} \
-            --services ${{ vars.ECS_SERVICE_API }} \
-            --max-attempts 30 \
-            --delay 30
+      # - name: Wait for deployments to complete
+      #   run: |
+      #     echo "⏳ Waiting for API deployment to complete..."
+      #     aws ecs wait services-stable \
+      #       --cluster ${{ vars.ECS_CLUSTER }} \
+      #       --services ${{ vars.ECS_SERVICE_API }} \
+      #       --max-attempts 30 \
+      #       --delay 30
 
-          echo "✅ API deployment completed!"
+      #     echo "✅ API deployment completed!"
 
-          echo "⏳ Waiting for Admin UI deployment to complete..."
-          aws ecs wait services-stable \
-            --cluster ${{ vars.ECS_CLUSTER }} \
-            --services ${{ vars.ECS_SERVICE_ADMIN }} \
-            --max-attempts 30 \
-            --delay 30
+      #     echo "⏳ Waiting for Admin UI deployment to complete..."
+      #     aws ecs wait services-stable \
+      #       --cluster ${{ vars.ECS_CLUSTER }} \
+      #       --services ${{ vars.ECS_SERVICE_ADMIN }} \
+      #       --max-attempts 30 \
+      #       --delay 30
 
-          echo "✅ All deployments completed successfully!"
+      #     echo "✅ All deployments completed successfully!"
 
-      - name: Get services status
-        run: |
-          echo "📊 API Service Status:"
-          API_STATUS=$(aws ecs describe-services \
-            --cluster ${{ vars.ECS_CLUSTER }} \
-            --services ${{ vars.ECS_SERVICE_API }} \
-            --query 'services[0].deployments[0]' \
-            --output table)
-          echo "$API_STATUS"
+      # - name: Get services status
+      #   run: |
+      #     echo "📊 API Service Status:"
+      #     API_STATUS=$(aws ecs describe-services \
+      #       --cluster ${{ vars.ECS_CLUSTER }} \
+      #       --services ${{ vars.ECS_SERVICE_API }} \
+      #       --query 'services[0].deployments[0]' \
+      #       --output table)
+      #     echo "$API_STATUS"
 
-          echo ""
-          echo "📊 Admin UI Service Status:"
-          ADMIN_STATUS=$(aws ecs describe-services \
-            --cluster ${{ vars.ECS_CLUSTER }} \
-            --services ${{ vars.ECS_SERVICE_ADMIN }} \
-            --query 'services[0].deployments[0]' \
-            --output table)
-          echo "$ADMIN_STATUS"
+      #     echo ""
+      #     echo "📊 Admin UI Service Status:"
+      #     ADMIN_STATUS=$(aws ecs describe-services \
+      #       --cluster ${{ vars.ECS_CLUSTER }} \
+      #       --services ${{ vars.ECS_SERVICE_ADMIN }} \
+      #       --query 'services[0].deployments[0]' \
+      #       --output table)
+      #     echo "$ADMIN_STATUS"
 
       - name: Output deployment summary
         run: |
