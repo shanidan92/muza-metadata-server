@@ -17,6 +17,7 @@ on:
           - production
 
 env:
+  AWS_REGION: ${{ env.AWS_REGION }}
   ECR_REPOSITORY_API: muza/metadata-api
   ECR_REPOSITORY_ADMIN: muza/admin-ui
   CONTAINER_NAME_API: metadata-api
