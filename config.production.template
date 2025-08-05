@@ -1,0 +1,20 @@
+# Muza Metadata Server Production Configuration Template
+# Copy this file to .env and fill in your actual values
+
+DATABASE_URL=postgresql://username:password@muza-rds.cluster-xxxxx.us-east-1.rds.amazonaws.com:5432/muza_db
+PORT=5000
+WORKERS=4
+DEBUG=false
+HOOK_COMMAND=""
+ADMIN_UI_PORT=5002
+AUDIO_UPLOAD_DIR=/data/audio
+IMAGE_UPLOAD_DIR=/data/images
+
+# ====== EXTERNAL SERVICES ======
+# MusicBrainz API configuration
+MUSICBRAINZ_APP_NAME=MuzaUtils
+MUSICBRAINZ_APP_VERSION=1.0
+MUSICBRAINZ_CONTACT=admin@yourdomain.com
+
+# Internal service URLs
+MUZA_SERVER_URL=http://metadata-server:5000/graphql

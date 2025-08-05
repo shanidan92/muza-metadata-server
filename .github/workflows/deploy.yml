@@ -1,0 +1,233 @@
+name: Build and Deploy Muza Metadata Server
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'muza-metadata-server/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  AWS_REGION: eu-west-1
+  ECR_REPOSITORY_API: muza/metadata-api
+  ECR_REPOSITORY_ADMIN: muza/admin-ui
+
+jobs:
+  build-and-deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+
+    # Set environment based on branch or manual input
+    environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'production' || (github.ref == 'refs/heads/develop' && 'staging' || 'staging')) }}
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push API image to Amazon ECR
+        id: build-api-image
+        working-directory: muza-metadata-server
+        run: |
+          # Generate image tag
+          IMAGE_TAG="${{ github.sha }}"
+          ECR_REGISTRY="${{ steps.login-ecr.outputs.registry }}"
+          API_IMAGE_URI="$ECR_REGISTRY/$ECR_REPOSITORY_API:$IMAGE_TAG"
+
+          echo "🏗️ Building API image: $API_IMAGE_URI"
+
+          # Build the main API Docker image
+          docker build -f Containerfile -t $API_IMAGE_URI .
+
+          # Also tag as latest for the environment
+          docker tag $API_IMAGE_URI $ECR_REGISTRY/$ECR_REPOSITORY_API:latest
+
+          # Push both tags
+          docker push $API_IMAGE_URI
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY_API:latest
+
+          echo "api-image=$API_IMAGE_URI" >> $GITHUB_OUTPUT
+          echo "image-tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Build, tag, and push Admin UI image to Amazon ECR
+        id: build-admin-image
+        working-directory: muza-metadata-server
+        run: |
+          # Use same image tag for consistency
+          IMAGE_TAG="${{ steps.build-api-image.outputs.image-tag }}"
+          ECR_REGISTRY="${{ steps.login-ecr.outputs.registry }}"
+          ADMIN_IMAGE_URI="$ECR_REGISTRY/$ECR_REPOSITORY_ADMIN:$IMAGE_TAG"
+
+          echo "🏗️ Building Admin UI image: $ADMIN_IMAGE_URI"
+
+          # Build the admin UI Docker image
+          docker build -f Containerfile.admin-ui -t $ADMIN_IMAGE_URI .
+
+          # Also tag as latest for the environment
+          docker tag $ADMIN_IMAGE_URI $ECR_REGISTRY/$ECR_REPOSITORY_ADMIN:latest
+
+          # Push both tags
+          docker push $ADMIN_IMAGE_URI
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY_ADMIN:latest
+
+          echo "admin-image=$ADMIN_IMAGE_URI" >> $GITHUB_OUTPUT
+
+      - name: Update API ECS service
+        run: |
+          echo "🚀 Updating API ECS service..."
+
+          # Get current task definition for API
+          TASK_DEFINITION=$(aws ecs describe-task-definition \
+            --task-definition $ECS_SERVICE_API \
+            --query 'taskDefinition' \
+            --output json)
+
+          # Update the image in the task definition
+          NEW_TASK_DEFINITION=$(echo $TASK_DEFINITION | jq --arg IMAGE "${{ steps.build-api-image.outputs.api-image }}" '
+            .containerDefinitions[0].image = $IMAGE |
+            del(.taskDefinitionArn) |
+            del(.revision) |
+            del(.status) |
+            del(.requiresAttributes) |
+            del(.placementConstraints) |
+            del(.compatibilities) |
+            del(.registeredAt) |
+            del(.registeredBy)
+          ')
+
+          # Register the new task definition
+          NEW_TASK_DEF_ARN=$(echo $NEW_TASK_DEFINITION | aws ecs register-task-definition \
+            --cli-input-json file:///dev/stdin \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+
+          echo "New API task definition: $NEW_TASK_DEF_ARN"
+
+          # Update the service to use the new task definition
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service $ECS_SERVICE_API \
+            --task-definition $NEW_TASK_DEF_ARN
+
+          echo "✅ API ECS service update initiated"
+
+      - name: Update Admin UI ECS service
+        run: |
+          echo "🔐 Updating Admin UI ECS service..."
+
+          # Get current task definition for Admin UI
+          TASK_DEFINITION=$(aws ecs describe-task-definition \
+            --task-definition $ECS_SERVICE_ADMIN \
+            --query 'taskDefinition' \
+            --output json)
+
+          # Update the image in the task definition
+          NEW_TASK_DEFINITION=$(echo $TASK_DEFINITION | jq --arg IMAGE "${{ steps.build-admin-image.outputs.admin-image }}" '
+            .containerDefinitions[0].image = $IMAGE |
+            del(.taskDefinitionArn) |
+            del(.revision) |
+            del(.status) |
+            del(.requiresAttributes) |
+            del(.placementConstraints) |
+            del(.compatibilities) |
+            del(.registeredAt) |
+            del(.registeredBy)
+          ')
+
+          # Register the new task definition
+          NEW_TASK_DEF_ARN=$(echo $NEW_TASK_DEFINITION | aws ecs register-task-definition \
+            --cli-input-json file:///dev/stdin \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+
+          echo "New Admin UI task definition: $NEW_TASK_DEF_ARN"
+
+          # Update the service to use the new task definition
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service $ECS_SERVICE_ADMIN \
+            --task-definition $NEW_TASK_DEF_ARN
+
+          echo "✅ Admin UI ECS service update initiated"
+
+      - name: Wait for deployments to complete
+        run: |
+          echo "⏳ Waiting for API deployment to complete..."
+          aws ecs wait services-stable \
+            --cluster $ECS_CLUSTER \
+            --services $ECS_SERVICE_API \
+            --max-attempts 30 \
+            --delay 30
+
+          echo "✅ API deployment completed!"
+
+          echo "⏳ Waiting for Admin UI deployment to complete..."
+          aws ecs wait services-stable \
+            --cluster $ECS_CLUSTER \
+            --services $ECS_SERVICE_ADMIN \
+            --max-attempts 30 \
+            --delay 30
+
+          echo "✅ All deployments completed successfully!"
+
+      - name: Get services status
+        run: |
+          echo "📊 API Service Status:"
+          API_STATUS=$(aws ecs describe-services \
+            --cluster $ECS_CLUSTER \
+            --services $ECS_SERVICE_API \
+            --query 'services[0].deployments[0]' \
+            --output table)
+          echo "$API_STATUS"
+
+          echo ""
+          echo "📊 Admin UI Service Status:"
+          ADMIN_STATUS=$(aws ecs describe-services \
+            --cluster $ECS_CLUSTER \
+            --services $ECS_SERVICE_ADMIN \
+            --query 'services[0].deployments[0]' \
+            --output table)
+          echo "$ADMIN_STATUS"
+
+      - name: Output deployment summary
+        run: |
+          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment:** $ENVIRONMENT" >> $GITHUB_STEP_SUMMARY
+          echo "- **ECS Cluster:** \`$ECS_CLUSTER\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image Tag:** \`${{ steps.build-api-image.outputs.image-tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔗 API Service" >> $GITHUB_STEP_SUMMARY
+          echo "- **Service:** \`$ECS_SERVICE_API\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image:** \`${{ steps.build-api-image.outputs.api-image }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Port:** 8000 (via ALB)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔐 Admin UI Service" >> $GITHUB_STEP_SUMMARY
+          echo "- **Service:** \`$ECS_SERVICE_ADMIN\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image:** \`${{ steps.build-admin-image.outputs.admin-image }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Port:** 5002 (VPN-only direct access)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** ✅ Both services deployed successfully" >> $GITHUB_STEP_SUMMARY

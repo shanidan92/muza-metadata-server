@@ -2,14 +2,11 @@ VENV_DIR := venv
 PYTHON := python3
 PIP := pip3
 CERT_DIR := certs
-SSL_CERT := $(CERT_DIR)/server.crt
-SSL_KEY := $(CERT_DIR)/server.key
 
 # Container-related variables
 CONTAINER_ENGINE := podman
 IMAGE_NAME := muza-metadata-server
 IMAGE_TAG := latest
-REGISTRY := quay.io/yaacov
 
 # Detect OS for cross-platform support
 ifeq ($(OS),Windows_NT)
@@ -82,20 +79,6 @@ run-dev:
 run:
 	./run.sh
 
-.PHONY: run-ssl
-run-ssl:
-	@if [ ! -f "$(SSL_CERT)" ]; then \
-		echo "Error: SSL certificate file $(SSL_CERT) not found"; \
-		echo "Run 'make certs' to generate SSL certificates"; \
-		exit 1; \
-	fi
-	@if [ ! -f "$(SSL_KEY)" ]; then \
-		echo "Error: SSL key file $(SSL_KEY) not found"; \
-		echo "Run 'make certs' to generate SSL certificates"; \
-		exit 1; \
-	fi
-	SSL_ENABLE=true SSL_CERT=$(SSL_CERT) SSL_KEY=$(SSL_KEY) ./run.sh
-
 .PHONY: clean
 clean:
 	rm -rf $(VENV_DIR)
@@ -108,15 +91,6 @@ clean:
 	rm -f *.pyc
 	find . -type d -name __pycache__ -exec rm -r {} +
 	find . -type d -name .pytest_cache -exec rm -r {} +
-
-.PHONY: certs
-certs:
-	mkdir -p $(CERT_DIR)
-	openssl req -x509 -newkey rsa:4096 -nodes \
-		-out $(SSL_CERT) \
-		-keyout $(SSL_KEY) \
-		-days 365 \
-		-subj "/C=US/ST=State/L=City/O=Organization/CN=localhost"
 
 .PHONY: container
 container:
@@ -135,7 +109,6 @@ container-run-ssl:
 		-p 5443:5000 \
 		-v $(PWD)/data:/data:Z \
 		-v $(PWD)/$(CERT_DIR):/app/certs:Z \
-		-e SSL_ENABLE=true \
 		$(REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)
 
 .PHONY: container-push

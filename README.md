@@ -5,7 +5,7 @@ A GraphQL server for managing music track metadata.
 ## Features
 
 - GraphQL API for querying and managing music track metadata
-- CQRS pattern (append-only) API to simplify conflict resolution and concurrency issues 
+- CQRS pattern (append-only) API to simplify conflict resolution and concurrency issues
 - SQLite database for data storage
 - SSL support for secure communication
 - Post-insert hooks for event-driven integrations and data synchronization
@@ -13,6 +13,7 @@ A GraphQL server for managing music track metadata.
 ## Installation
 
 1. Create a virtual environment:
+
 ```bash
 # Init venv
 make venv
@@ -21,6 +22,7 @@ source venv/bin/activate
 ```
 
 2. Install dependencies:
+
 ```bash
 make install
 ```
@@ -28,11 +30,13 @@ make install
 ## Usage
 
 ### Development Server
+
 ```bash
 make run-dev
 ```
 
 ### Production Server
+
 ```bash
 # Without SSL
 make run
@@ -47,9 +51,24 @@ make run-ssl
 The server can be configured using environment variables or command-line arguments:
 
 - `PORT`: Server port (default: 5000)
-- `DB_PATH`: SQLite database path (default: music.db)
+- `DATABASE_URL`: Database connection URL (see Database Configuration below)
+- `DB_PATH`: SQLite database path (default: music.db) - deprecated, use DATABASE_URL
 - `DEBUG`: Enable debug mode (default: false)
 - `HOOK_COMMAND`: Command to execute after successful track insertion (optional)
+
+### Database Configuration
+
+#### SQLite (Development)
+
+```bash
+export DATABASE_URL="sqlite:///music.db"
+```
+
+#### PostgreSQL RDS (Production)
+
+```bash
+export DATABASE_URL="postgresql://username:password@rds-endpoint:5432/database_name"
+```
 
 ## Hooks
 
@@ -69,6 +88,7 @@ Access the GraphQL playground at `http://localhost:5000/graphql`
 ### Basic Examples
 
 1. Create a basic track:
+
 ```graphql
 mutation {
   createMusicTrack(
@@ -89,6 +109,7 @@ mutation {
 ```
 
 2. Search tracks:
+
 ```graphql
 {
   searchTracks(
@@ -111,6 +132,7 @@ For more complex examples and test data, check out the [playground directory](pl
 ### Building the Container
 
 Using Podman:
+
 ```bash
 make container
 ```
@@ -118,6 +140,7 @@ make container
 ### Running the Container
 
 Standard HTTP mode:
+
 ```bash
 mkdir data # create a directory for percistant data
 
@@ -125,6 +148,7 @@ make container-run
 ```
 
 With SSL enabled:
+
 ```bash
 make certs  # Generate self-signed certificates first
 mkdir data # create a directory for percistant data
@@ -138,15 +162,13 @@ The container accepts the following environment variables:
 
 - `PORT`: Server port (default: 5000)
 - `DB_PATH`: Database path (default: /data/music.db)
-- `SSL_ENABLE`: Enable SSL (default: false)
-- `SSL_CERT`: SSL certificate path (default: /app/certs/server.crt)
-- `SSL_KEY`: SSL private key path (default: /app/certs/server.key)
 - `WORKERS`: Number of Gunicorn workers (default: 4)
 - `HOOK_COMMAND`: Command to execute after successful track insertion (optional)
 
 ### Persistent Storage
 
 Mount a volume to `/data` to persist the database:
+
 ```bash
 mkdir data # create a directory for percistant data
 

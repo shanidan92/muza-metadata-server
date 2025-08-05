@@ -1,30 +1,41 @@
 #!/bin/bash
 
 # Default values
-PORT=${PORT:-5000}
+PORT=${PORT:-8000}
+ADMIN_UI_PORT=${ADMIN_UI_PORT:-5002}
 WORKERS=${WORKERS:-4}
-SSL_ENABLE=${SSL_ENABLE:-"false"}
-SSL_CERT=${SSL_CERT:-"certs/server.crt"}
-SSL_KEY=${SSL_KEY:-"certs/server.key"}
 HOOK_COMMAND=${HOOK_COMMAND:-""}
+RUN_MODE=${RUN_MODE:-"api"}
+
+echo "🚀 Starting Muza Metadata Server"
+echo "Mode: $RUN_MODE"
+echo "Main API Port: $PORT"
+echo "Admin UI Port: $ADMIN_UI_PORT"
 
 # Base Gunicorn options
-GUNICORN_OPTS="--workers $WORKERS --bind 0.0.0.0:$PORT"
-
-# Add SSL if enabled and certificates are provided
-if [[ "$SSL_ENABLE" == "true" ]]; then
-    echo "Starting with SSL support"
-    GUNICORN_OPTS="$GUNICORN_OPTS --certfile=$SSL_CERT --keyfile=$SSL_KEY"
-else
-    echo "Starting without SSL support"
-fi
+GUNICORN_OPTS="--workers $WORKERS --bind 0.0.0.0:$PORT --timeout 120 --worker-class sync"
 
 # Show hook status
 if [[ -n "$HOOK_COMMAND" ]]; then
-    echo "Hook command enabled: $HOOK_COMMAND"
+    echo "🔗 Hook command enabled: $HOOK_COMMAND"
 else
-    echo "No hook command configured"
+    echo "ℹ️  No hook command configured"
 fi
 
-# Change the Gunicorn target from create_app to wsgi:app
+# Check database connectivity
+echo "🔗 Checking database connectivity..."
+python -c "
+from muza_metadata_server.config import Config
+from muza_metadata_server.database import Database
+try:
+    config = Config.from_env()
+    db = Database(config.database_url)
+    print('✅ Database connection successful')
+except Exception as e:
+    print(f'❌ Database connection failed: {e}')
+    exit(1)
+"
+
+echo "🚀 Starting main API server on port $PORT..."
+# Start the main GraphQL API server
 exec gunicorn $GUNICORN_OPTS wsgi:app
