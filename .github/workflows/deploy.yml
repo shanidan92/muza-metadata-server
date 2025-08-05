@@ -19,9 +19,10 @@ on:
           - production
 
 env:
-  AWS_REGION: eu-west-1
   ECR_REPOSITORY_API: muza/metadata-api
   ECR_REPOSITORY_ADMIN: muza/admin-ui
+  CONTAINER_NAME_API: metadata-api
+  CONTAINER_NAME_ADMIN: admin-ui
 
 jobs:
   build-and-deploy:
@@ -52,7 +53,7 @@ jobs:
       - name: Build, tag, and push API image to Amazon ECR
         id: build-api-image
         run: |
-          # Generate image tag
+          # Generate image tag using GitHub SHA only
           IMAGE_TAG="${{ github.sha }}"
           ECR_REGISTRY="${{ steps.login-ecr.outputs.registry }}"
           API_IMAGE_URI="$ECR_REGISTRY/$ECR_REPOSITORY_API:$IMAGE_TAG"
@@ -62,12 +63,8 @@ jobs:
           # Build the main API Docker image
           docker build -f Containerfile -t $API_IMAGE_URI .
 
-          # Also tag as latest for the environment
-          docker tag $API_IMAGE_URI $ECR_REGISTRY/$ECR_REPOSITORY_API:latest
-
-          # Push both tags
+          # Push the image with SHA tag only
           docker push $API_IMAGE_URI
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY_API:latest
 
           echo "api-image=$API_IMAGE_URI" >> $GITHUB_OUTPUT
           echo "image-tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
@@ -85,92 +82,52 @@ jobs:
           # Build the admin UI Docker image
           docker build -f Containerfile.admin-ui -t $ADMIN_IMAGE_URI .
 
-          # Also tag as latest for the environment
-          docker tag $ADMIN_IMAGE_URI $ECR_REGISTRY/$ECR_REPOSITORY_ADMIN:latest
-
-          # Push both tags
+          # Push the image with SHA tag only
           docker push $ADMIN_IMAGE_URI
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY_ADMIN:latest
 
           echo "admin-image=$ADMIN_IMAGE_URI" >> $GITHUB_OUTPUT
 
-      - name: Update API ECS service
-        run: |
-          echo "🚀 Updating API ECS service..."
+      - name: Get current API task definition
+        run: >
+          aws ecs describe-task-definition
+          --task-definition "$ECS_SERVICE_API" --region "$AWS_REGION" --query 'taskDefinition'
+          > api-task-definition.json
 
-          # Get current task definition for API
-          TASK_DEFINITION=$(aws ecs describe-task-definition \
-            --task-definition $ECS_SERVICE_API \
-            --query 'taskDefinition' \
-            --output json)
+      - name: Fill in the new API image ID in the Amazon ECS task definition
+        id: task-def-api
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: api-task-definition.json
+          container-name: ${{ env.CONTAINER_NAME_API }}
+          image: ${{ steps.build-api-image.outputs.api-image }}
 
-          # Update the image in the task definition
-          NEW_TASK_DEFINITION=$(echo $TASK_DEFINITION | jq --arg IMAGE "${{ steps.build-api-image.outputs.api-image }}" '
-            .containerDefinitions[0].image = $IMAGE |
-            del(.taskDefinitionArn) |
-            del(.revision) |
-            del(.status) |
-            del(.requiresAttributes) |
-            del(.placementConstraints) |
-            del(.compatibilities) |
-            del(.registeredAt) |
-            del(.registeredBy)
-          ')
+      - name: Deploy API Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def-api.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE_API }}
+          cluster: ${{ vars.ECS_CLUSTER }}
 
-          # Register the new task definition
-          NEW_TASK_DEF_ARN=$(echo $NEW_TASK_DEFINITION | aws ecs register-task-definition \
-            --cli-input-json file:///dev/stdin \
-            --query 'taskDefinition.taskDefinitionArn' \
-            --output text)
+      - name: Get current Admin UI task definition
+        run: >
+          aws ecs describe-task-definition
+          --task-definition "$ECS_SERVICE_ADMIN" --region "$AWS_REGION" --query 'taskDefinition'
+          > admin-task-definition.json
 
-          echo "New API task definition: $NEW_TASK_DEF_ARN"
+      - name: Fill in the new Admin UI image ID in the Amazon ECS task definition
+        id: task-def-admin
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: admin-task-definition.json
+          container-name: ${{ env.CONTAINER_NAME_ADMIN }}
+          image: ${{ steps.build-admin-image.outputs.admin-image }}
 
-          # Update the service to use the new task definition
-          aws ecs update-service \
-            --cluster $ECS_CLUSTER \
-            --service $ECS_SERVICE_API \
-            --task-definition $NEW_TASK_DEF_ARN
-
-          echo "✅ API ECS service update initiated"
-
-      - name: Update Admin UI ECS service
-        run: |
-          echo "🔐 Updating Admin UI ECS service..."
-
-          # Get current task definition for Admin UI
-          TASK_DEFINITION=$(aws ecs describe-task-definition \
-            --task-definition $ECS_SERVICE_ADMIN \
-            --query 'taskDefinition' \
-            --output json)
-
-          # Update the image in the task definition
-          NEW_TASK_DEFINITION=$(echo $TASK_DEFINITION | jq --arg IMAGE "${{ steps.build-admin-image.outputs.admin-image }}" '
-            .containerDefinitions[0].image = $IMAGE |
-            del(.taskDefinitionArn) |
-            del(.revision) |
-            del(.status) |
-            del(.requiresAttributes) |
-            del(.placementConstraints) |
-            del(.compatibilities) |
-            del(.registeredAt) |
-            del(.registeredBy)
-          ')
-
-          # Register the new task definition
-          NEW_TASK_DEF_ARN=$(echo $NEW_TASK_DEFINITION | aws ecs register-task-definition \
-            --cli-input-json file:///dev/stdin \
-            --query 'taskDefinition.taskDefinitionArn' \
-            --output text)
-
-          echo "New Admin UI task definition: $NEW_TASK_DEF_ARN"
-
-          # Update the service to use the new task definition
-          aws ecs update-service \
-            --cluster $ECS_CLUSTER \
-            --service $ECS_SERVICE_ADMIN \
-            --task-definition $NEW_TASK_DEF_ARN
-
-          echo "✅ Admin UI ECS service update initiated"
+      - name: Deploy Admin UI Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def-admin.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE_ADMIN }}
+          cluster: ${{ vars.ECS_CLUSTER }}
 
       - name: Wait for deployments to complete
         run: |
