@@ -89,7 +89,7 @@ jobs:
       - name: Get current API task definition
         run: >
           aws ecs describe-task-definition
-          --task-definition "$ECS_SERVICE_API" --region "$AWS_REGION" --query 'taskDefinition'
+          --task-definition "${{ vars.ECS_SERVICE_API }}" --region "${{ vars.AWS_REGION }}" --query 'taskDefinition'
           > api-task-definition.json
 
       - name: Fill in the new API image ID in the Amazon ECS task definition
@@ -104,13 +104,13 @@ jobs:
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
           task-definition: ${{ steps.task-def-api.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE_API }}
+          service: ${{ vars.ECS_SERVICE_API }}
           cluster: ${{ vars.ECS_CLUSTER }}
 
       - name: Get current Admin UI task definition
         run: >
           aws ecs describe-task-definition
-          --task-definition "$ECS_SERVICE_ADMIN" --region "$AWS_REGION" --query 'taskDefinition'
+          --task-definition "${{ vars.ECS_SERVICE_ADMIN }}" --region "${{ vars.AWS_REGION }}" --query 'taskDefinition'
           > admin-task-definition.json
 
       - name: Fill in the new Admin UI image ID in the Amazon ECS task definition
@@ -125,15 +125,15 @@ jobs:
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
           task-definition: ${{ steps.task-def-admin.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE_ADMIN }}
+          service: ${{ vars.ECS_SERVICE_ADMIN }}
           cluster: ${{ vars.ECS_CLUSTER }}
 
       - name: Wait for deployments to complete
         run: |
           echo "⏳ Waiting for API deployment to complete..."
           aws ecs wait services-stable \
-            --cluster $ECS_CLUSTER \
-            --services $ECS_SERVICE_API \
+            --cluster ${{ vars.ECS_CLUSTER }} \
+            --services ${{ vars.ECS_SERVICE_API }} \
             --max-attempts 30 \
             --delay 30
 
@@ -141,8 +141,8 @@ jobs:
 
           echo "⏳ Waiting for Admin UI deployment to complete..."
           aws ecs wait services-stable \
-            --cluster $ECS_CLUSTER \
-            --services $ECS_SERVICE_ADMIN \
+            --cluster ${{ vars.ECS_CLUSTER }} \
+            --services ${{ vars.ECS_SERVICE_ADMIN }} \
             --max-attempts 30 \
             --delay 30
 
@@ -152,8 +152,8 @@ jobs:
         run: |
           echo "📊 API Service Status:"
           API_STATUS=$(aws ecs describe-services \
-            --cluster $ECS_CLUSTER \
-            --services $ECS_SERVICE_API \
+            --cluster ${{ vars.ECS_CLUSTER }} \
+            --services ${{ vars.ECS_SERVICE_API }} \
             --query 'services[0].deployments[0]' \
             --output table)
           echo "$API_STATUS"
@@ -161,8 +161,8 @@ jobs:
           echo ""
           echo "📊 Admin UI Service Status:"
           ADMIN_STATUS=$(aws ecs describe-services \
-            --cluster $ECS_CLUSTER \
-            --services $ECS_SERVICE_ADMIN \
+            --cluster ${{ vars.ECS_CLUSTER }} \
+            --services ${{ vars.ECS_SERVICE_ADMIN }} \
             --query 'services[0].deployments[0]' \
             --output table)
           echo "$ADMIN_STATUS"
@@ -171,16 +171,16 @@ jobs:
         run: |
           echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment:** ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'production' || (github.ref == 'refs/heads/develop' && 'staging' || 'staging')) }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **ECS Cluster:** \`$ECS_CLUSTER\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **ECS Cluster:** \`${{ vars.ECS_CLUSTER }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Image Tag:** \`${{ steps.build-api-image.outputs.image-tag }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🔗 API Service" >> $GITHUB_STEP_SUMMARY
-          echo "- **Service:** \`$ECS_SERVICE_API\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Service:** \`${{ vars.ECS_SERVICE_API }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Image:** \`${{ steps.build-api-image.outputs.api-image }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Port:** 8000 (via ALB)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🔐 Admin UI Service" >> $GITHUB_STEP_SUMMARY
-          echo "- **Service:** \`$ECS_SERVICE_ADMIN\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Service:** \`${{ vars.ECS_SERVICE_ADMIN }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Image:** \`${{ steps.build-admin-image.outputs.admin-image }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Port:** 5002 (VPN-only direct access)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
