@@ -2,7 +2,6 @@
 
 # Default values
 PORT=${PORT:-8000}
-ADMIN_UI_PORT=${ADMIN_UI_PORT:-5002}
 WORKERS=${WORKERS:-4}
 HOOK_COMMAND=${HOOK_COMMAND:-""}
 RUN_MODE=${RUN_MODE:-"api"}
@@ -10,7 +9,6 @@ RUN_MODE=${RUN_MODE:-"api"}
 echo "🚀 Starting Muza Metadata Server"
 echo "Mode: $RUN_MODE"
 echo "Main API Port: $PORT"
-echo "Admin UI Port: $ADMIN_UI_PORT"
 
 # Base Gunicorn options
 GUNICORN_OPTS="--workers $WORKERS --bind 0.0.0.0:$PORT --timeout 120 --worker-class sync"

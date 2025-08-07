@@ -23,7 +23,7 @@ def create_app(config_override=None) -> Flask:
         return handle_graphql_request(app.schema, app.db, config)
 
     # Health check endpoint
-    @app.route("/")
+    @app.route("/health")
     def index():
         return jsonify(
             {
