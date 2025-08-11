@@ -55,17 +55,23 @@ jobs:
           # Generate image tag using GitHub SHA only
           IMAGE_TAG="${{ github.sha }}"
           ECR_REGISTRY="${{ steps.login-ecr.outputs.registry }}"
-          API_IMAGE_URI="$ECR_REGISTRY/$ECR_REPOSITORY_API:$IMAGE_TAG"
+          REPO="${{ env.ECR_REPOSITORY_API }}"
 
-          echo "🏗️ Building API image: $API_IMAGE_URI"
+          API_IMAGE_SHA="$ECR_REGISTRY/$REPO:$IMAGE_TAG"
+          API_IMAGE_LATEST="$ECR_REGISTRY/$REPO:latest"
 
-          # Build the main API Docker image
-          docker build -f Containerfile -t $API_IMAGE_URI .
+          echo "🏗️ Building API image: $API_IMAGE_SHA (also tagging latest)"
+          # Build the main API Docker image with both tags
+          docker build -f Containerfile -t "$API_IMAGE_SHA" -t "$API_IMAGE_LATEST" .
 
-          # Push the image with SHA tag only
-          docker push $API_IMAGE_URI
+          # Push both images
+          echo "Pushing: $API_IMAGE_SHA"
+          docker push "$API_IMAGE_SHA"
+          echo "Pushing: $API_IMAGE_LATEST"
+          docker push "$API_IMAGE_LATEST"
 
-          echo "api-image=$API_IMAGE_URI" >> $GITHUB_OUTPUT
+          echo "api-image-sha=$API_IMAGE_SHA" >> $GITHUB_OUTPUT
+          echo "api-image-latest=$API_IMAGE_LATEST" >> $GITHUB_OUTPUT
           echo "image-tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
 
       - name: Build, tag, and push Admin UI image to Amazon ECR
@@ -74,17 +80,23 @@ jobs:
           # Use same image tag for consistency
           IMAGE_TAG="${{ steps.build-api-image.outputs.image-tag }}"
           ECR_REGISTRY="${{ steps.login-ecr.outputs.registry }}"
-          ADMIN_IMAGE_URI="$ECR_REGISTRY/$ECR_REPOSITORY_ADMIN:$IMAGE_TAG"
+          REPO="${{ env.ECR_REPOSITORY_ADMIN }}"
 
-          echo "🏗️ Building Admin UI image: $ADMIN_IMAGE_URI"
+          ADMIN_IMAGE_SHA="$ECR_REGISTRY/$REPO:$IMAGE_TAG"
+          ADMIN_IMAGE_LATEST="$ECR_REGISTRY/$REPO:latest"
 
-          # Build the admin UI Docker image
-          docker build -f Containerfile.admin-ui -t $ADMIN_IMAGE_URI .
+          echo "🏗️ Building Admin UI image: $ADMIN_IMAGE_SHA (also tagging latest)"
+          # Build the admin UI Docker image with both tags
+          docker build -f Containerfile.admin-ui -t "$ADMIN_IMAGE_SHA" -t "$ADMIN_IMAGE_LATEST" .
 
-          # Push the image with SHA tag only
-          docker push $ADMIN_IMAGE_URI
+          # Push both images
+          echo "Pushing: $ADMIN_IMAGE_SHA"
+          docker push "$ADMIN_IMAGE_SHA"
+          echo "Pushing: $ADMIN_IMAGE_LATEST"
+          docker push "$ADMIN_IMAGE_LATEST"
 
-          echo "admin-image=$ADMIN_IMAGE_URI" >> $GITHUB_OUTPUT
+          echo "admin-image-sha=$ADMIN_IMAGE_SHA" >> $GITHUB_OUTPUT
+          echo "admin-image-latest=$ADMIN_IMAGE_LATEST" >> $GITHUB_OUTPUT
 
       - name: Get current API task definition
         run: >
@@ -98,7 +110,7 @@ jobs:
         with:
           task-definition: api-task-definition.json
           container-name: ${{ env.CONTAINER_NAME_API }}
-          image: ${{ steps.build-api-image.outputs.api-image }}
+          image: ${{ steps.build-api-image.outputs.api-image-sha }}
 
       - name: Deploy API Amazon ECS task definition
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
@@ -119,7 +131,7 @@ jobs:
         with:
           task-definition: admin-task-definition.json
           container-name: ${{ env.CONTAINER_NAME_ADMIN }}
-          image: ${{ steps.build-admin-image.outputs.admin-image }}
+          image: ${{ steps.build-admin-image.outputs.admin-image-sha }}
 
       - name: Deploy Admin UI Amazon ECS task definition
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
@@ -176,12 +188,12 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🔗 API Service" >> $GITHUB_STEP_SUMMARY
           echo "- **Service:** \`${{ vars.ECS_SERVICE_API }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Image:** \`${{ steps.build-api-image.outputs.api-image }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image:** \`${{ steps.build-api-image.outputs.api-image-sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Port:** 8000 (via ALB)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🔐 Admin UI Service" >> $GITHUB_STEP_SUMMARY
           echo "- **Service:** \`${{ vars.ECS_SERVICE_ADMIN }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Image:** \`${{ steps.build-admin-image.outputs.admin-image }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image:** \`${{ steps.build-admin-image.outputs.admin-image-sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Port:** 5002 (VPN-only direct access)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Status:** ✅ Both services deployed successfully" >> $GITHUB_STEP_SUMMARY
