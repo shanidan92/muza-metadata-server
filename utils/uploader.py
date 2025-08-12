@@ -49,7 +49,14 @@ def create_app(config: Config = None) -> Flask:
         app.secret_key = config.secret_key
     
     # Initialize components
-    file_handler = FileHandler(config.audio_upload_dir, config.image_upload_dir)
+    file_handler = FileHandler(
+        config.audio_upload_dir,
+        config.image_upload_dir,
+        s3_bucket_raw=config.s3_audio_raw_bucket or None,
+        s3_bucket_images=config.s3_cover_art_bucket or None,
+        cdn_domain=config.cdn_domain_name or None,
+        aws_region=config.aws_region,
+    )
     metadata_extractor = MetadataExtractor()
     mb_client = MusicBrainzClient(
         config.musicbrainz_app_name,
@@ -64,7 +71,7 @@ def create_app(config: Config = None) -> Flask:
         return None
 
     @app.route('/', methods=['GET'])
-    @app.route('/admin/', methods=['GET'])
+    @app.route('/admin', methods=['GET'])
     def index():
         """Serve the upload interface"""
         auth_redirect = _require_login()
@@ -80,6 +87,53 @@ def create_app(config: Config = None) -> Flask:
     @app.route('/admin/signin', methods=['GET'])
     def signin():
         return render_template('login.html')
+
+    @app.route('/admin/presign/audio', methods=['POST'])
+    def presign_audio():
+        auth_redirect = _require_login()
+        if auth_redirect:
+            return auth_redirect
+        body = request.get_json(silent=True) or {}
+        filename = body.get('filename', 'upload.flac')
+        content_type = body.get('content_type', 'audio/flac')
+        file_ext = os.path.splitext(filename)[1] or '.flac'
+        key = f"audio/raw/{secrets.token_urlsafe(16)}{file_ext}"
+        try:
+            import boto3
+            s3 = boto3.client('s3', region_name=config.aws_region)
+            url = s3.generate_presigned_url(
+                'put_object',
+                Params={'Bucket': config.s3_audio_raw_bucket, 'Key': key, 'ContentType': content_type},
+                ExpiresIn=3600,
+            )
+            return jsonify({'upload_url': url, 'key': key, 'bucket': config.s3_audio_raw_bucket, 'content_type': content_type})
+        except Exception as e:
+            logger.error(f"Error generating presigned URL: {e}")
+            return jsonify({"error": "Failed to generate upload URL"}), 500
+
+    @app.route('/admin/presign/cover', methods=['POST'])
+    def presign_cover():
+        auth_redirect = _require_login()
+        if auth_redirect:
+            return auth_redirect
+        body = request.get_json(silent=True) or {}
+        filename = body.get('filename', 'cover.jpg')
+        content_type = body.get('content_type', 'image/jpeg')
+        file_ext = os.path.splitext(filename)[1] or '.jpg'
+        key = f"cover-art/{secrets.token_urlsafe(16)}{file_ext}"
+        try:
+            import boto3
+            s3 = boto3.client('s3', region_name=config.aws_region)
+            url = s3.generate_presigned_url(
+                'put_object',
+                Params={'Bucket': config.s3_cover_art_bucket, 'Key': key, 'ContentType': content_type},
+                ExpiresIn=3600,
+            )
+            cdn_url = f"https://{config.cdn_domain_name}/{key}" if config.cdn_domain_name else None
+            return jsonify({'upload_url': url, 'key': key, 'bucket': config.s3_cover_art_bucket, 'content_type': content_type, 'cdn_url': cdn_url})
+        except Exception as e:
+            logger.error(f"Error generating presigned URL for cover: {e}")
+            return jsonify({"error": "Failed to generate upload URL"}), 500
 
     @app.route('/login', methods=['GET'])
     @app.route('/admin/login', methods=['GET'])
@@ -193,9 +247,11 @@ def create_app(config: Config = None) -> Flask:
                 flac_metadata, mb_client, file_handler, config
             )
             
-            # Set file path in metadata
+            # Set playback URL. If CDN is configured, point to expected HLS manifest.
+            rel_base = os.path.splitext(os.path.basename(relative_path))[0]
+            expected_hls_relative = f"audio/hls/{rel_base}/index.m3u8"
             enhanced_metadata['song_file'] = file_handler.get_file_url(
-                relative_path, request.url_root
+                expected_hls_relative, request.url_root
             )
             
             # Insert into Muza database

@@ -22,6 +22,10 @@ class Config:
     cognito_base_url: str = ""  # e.g. https://<domain>.auth.<region>.amazoncognito.com
     oauth_redirect_uri: str = ""
     oauth_logout_redirect_uri: str = ""
+    # S3/CDN
+    s3_audio_raw_bucket: str = ""
+    s3_cover_art_bucket: str = ""
+    cdn_domain_name: str = ""
 
     @classmethod
     def from_env(cls):
@@ -44,4 +48,7 @@ class Config:
             cognito_base_url=os.getenv("COGNITO_BASE_URL", ""),
             oauth_redirect_uri=os.getenv("OAUTH_REDIRECT_URI", ""),
             oauth_logout_redirect_uri=os.getenv("OAUTH_LOGOUT_REDIRECT_URI", ""),
+            s3_audio_raw_bucket=os.getenv("S3_AUDIO_RAW_BUCKET", ""),
+            s3_cover_art_bucket=os.getenv("S3_COVER_ART_BUCKET", ""),
+            cdn_domain_name=os.getenv("CDN_DOMAIN_NAME", ""),
         )

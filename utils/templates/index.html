@@ -250,6 +250,74 @@
           </section>
         </form>
 
+        <!-- Cover Art Upload -->
+        <section class="cover-upload-section" style="margin-top: 40px">
+          <h2>Cover Art Upload</h2>
+          <form id="coverUploadForm">
+            <div
+              class="upload-area"
+              id="coverUploadArea"
+              style="margin-top: 10px"
+            >
+              <p><strong>Select a cover image to upload</strong></p>
+              <input
+                type="file"
+                id="coverFileInput"
+                accept="image/*"
+                aria-label="Select cover image"
+              />
+              <div class="button-group" style="margin-top: 10px">
+                <button type="submit" id="coverUploadBtn" class="upload-btn">
+                  Upload Cover
+                </button>
+              </div>
+            </div>
+            <div
+              style="
+                margin-top: 10px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+              "
+            >
+              <img
+                id="coverPreview"
+                alt="Cover preview"
+                style="
+                  display: none;
+                  max-height: 120px;
+                  border-radius: 6px;
+                  border: 1px solid #ddd;
+                "
+              />
+              <input
+                type="text"
+                id="coverCdnUrl"
+                placeholder="CDN URL will appear here"
+                style="
+                  flex: 1;
+                  padding: 8px;
+                  border: 1px solid #ccc;
+                  border-radius: 6px;
+                "
+                readonly
+              />
+              <button
+                type="button"
+                id="copyCdnUrlBtn"
+                class="upload-btn secondary"
+              >
+                Copy
+              </button>
+            </div>
+          </form>
+          <div
+            class="response-area"
+            id="coverResponseArea"
+            style="display: none; margin-top: 10px"
+          ></div>
+        </section>
+
         <!-- Loading Indicator -->
         <section class="loading-section">
           <div class="loading" id="loading" role="status" aria-live="polite">
@@ -286,5 +354,9 @@
 
     <!-- Application Script -->
     <script type="module" src="static/js/main.js"></script>
+    <script type="module">
+      import { CoverUploader } from '/admin/static/js/cover-uploader.js';
+      document.addEventListener('DOMContentLoaded', () => new CoverUploader());
+    </script>
   </body>
 </html>
