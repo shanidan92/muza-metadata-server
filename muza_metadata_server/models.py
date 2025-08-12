@@ -47,7 +47,7 @@ class MusicTrack(Base):
     musicbrainz_track_id = Column(String(36), nullable=True, index=True)
 
     # Timestamp
-    created_at = Column(String(32), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=func.now())
 
     def to_dict(self):
         """
@@ -74,7 +74,7 @@ class MusicTrack(Base):
             "composer": self.composer,
             "song_file": self.song_file,
             "musicbrainz_track_id": self.musicbrainz_track_id,
-            "created_at": self.created_at,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
     def __repr__(self):

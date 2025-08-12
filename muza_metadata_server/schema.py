@@ -116,8 +116,6 @@ class CreateMusicTrack(graphene.Mutation):
         if "uuid" not in kwargs or not kwargs["uuid"]:
             kwargs["uuid"] = str(uuid.uuid4())
 
-        kwargs["created_at"] = datetime.now(timezone.utc).isoformat() + "Z"
-
         try:
             track_data = db.insert_track(kwargs)
             if track_data:
