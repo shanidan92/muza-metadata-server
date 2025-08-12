@@ -1,12 +1,19 @@
 import logging
 import os
-from flask import Flask, request, jsonify, send_from_directory, render_template, redirect
+import base64
+import hashlib
+import hmac
+import json
+import secrets
+from urllib.parse import urlencode
+from flask import Flask, request, jsonify, send_from_directory, render_template, redirect, session, url_for
 from werkzeug.exceptions import RequestEntityTooLarge
 from .config import Config
 from .file_handler import FileHandler
 from .metadata_extractor import MetadataExtractor
 from .musicbrainz_client import MusicBrainzClient
 from .muza_client import MuzaClient
+import requests
 
 # Configure logging
 logging.basicConfig(
@@ -15,10 +22,22 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Filter to suppress noisy /health access logs from werkzeug
+class _IgnoreHealthFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            message = str(record.getMessage())
+        except Exception:
+            message = str(record.msg)
+        return '/health' not in message
+
+werkzeug_logger = logging.getLogger('werkzeug')
+werkzeug_logger.addFilter(_IgnoreHealthFilter())
+
 
 def create_app(config: Config = None) -> Flask:
     """Create and configure Flask application"""
-    app = Flask(__name__, template_folder='templates', static_folder='static')
+    app = Flask(__name__, template_folder='templates', static_folder='static', static_url_path='/admin/static')
     
     # Load configuration
     if config is None:
@@ -26,6 +45,8 @@ def create_app(config: Config = None) -> Flask:
     
     # Configure Flask
     app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB max file size
+    if config.secret_key:
+        app.secret_key = config.secret_key
     
     # Initialize components
     file_handler = FileHandler(config.audio_upload_dir, config.image_upload_dir)
@@ -37,19 +58,116 @@ def create_app(config: Config = None) -> Flask:
     )
     muza_client = MuzaClient(config.muza_server_url)
     
+    def _require_login():
+        if not session.get('user'):
+            return redirect('/admin/signin')
+        return None
+
     @app.route('/', methods=['GET'])
+    @app.route('/admin/', methods=['GET'])
     def index():
         """Serve the upload interface"""
+        auth_redirect = _require_login()
+        if auth_redirect:
+            return auth_redirect
         return render_template('index.html')
 
     @app.route('/health', methods=['GET'])
     def health_check():
         """Health check endpoint"""
         return jsonify({"status": "healthy", "service": "Muza Utils API"})
+
+    @app.route('/admin/signin', methods=['GET'])
+    def signin():
+        return render_template('login.html')
+
+    @app.route('/login', methods=['GET'])
+    @app.route('/admin/login', methods=['GET'])
+    def login():
+        """Start Cognito Authorization Code flow"""
+        state = secrets.token_urlsafe(16)
+        nonce = secrets.token_urlsafe(16)
+        session['oauth_state'] = state
+        session['oauth_nonce'] = nonce
+        if not config.cognito_base_url or not config.cognito_client_id or not config.oauth_redirect_uri:
+            return jsonify({"error": "Cognito not configured"}), 500
+        params = {
+            'client_id': config.cognito_client_id,
+            'response_type': 'code',
+            'scope': 'openid email profile',
+            'redirect_uri': config.oauth_redirect_uri,
+            'state': state,
+        }
+        authorize_url = f"{config.cognito_base_url}/oauth2/authorize?{urlencode(params)}"
+        return redirect(authorize_url)
+
+    def _cognito_client_secret_hash(username: str) -> str:
+        if not config.cognito_client_secret:
+            return ""
+        key = bytes(config.cognito_client_secret, 'utf-8')
+        msg = bytes(username + config.cognito_client_id, 'utf-8')
+        digest = hmac.new(key, msg, digestmod=hashlib.sha256).digest()
+        return base64.b64encode(digest).decode()
+
+    @app.route('/oauth2/callback', methods=['GET'])
+    @app.route('/admin/oauth2/callback', methods=['GET'])
+    def oauth_callback():
+        """Exchange code for tokens and store user session"""
+        error = request.args.get('error')
+        if error:
+            return jsonify({"error": error, "error_description": request.args.get('error_description')}), 400
+        code = request.args.get('code')
+        state = request.args.get('state')
+        if not code or not state or state != session.get('oauth_state'):
+            return jsonify({"error": "Invalid OAuth state or missing code"}), 400
+        token_url = f"{config.cognito_base_url}/oauth2/token"
+        data = {
+            'grant_type': 'authorization_code',
+            'client_id': config.cognito_client_id,
+            'code': code,
+            'redirect_uri': config.oauth_redirect_uri,
+        }
+        auth = None
+        headers = { 'Content-Type': 'application/x-www-form-urlencoded' }
+        if config.cognito_client_secret:
+            # Basic auth with client credentials
+            auth = (config.cognito_client_id, config.cognito_client_secret)
+        resp = requests.post(token_url, data=data, headers=headers, auth=auth, timeout=10)
+        if resp.status_code != 200:
+            return jsonify({"error": "Token exchange failed", "details": resp.text}), 400
+        tokens = resp.json()
+        id_token = tokens.get('id_token')
+        access_token = tokens.get('access_token')
+        if not id_token or not access_token:
+            return jsonify({"error": "Missing tokens in response"}), 400
+        # Optionally decode id_token without verifying signature just for claims display
+        session['user'] = {
+            'id_token': id_token,
+            'access_token': access_token,
+        }
+        # Clear state/nonce
+        session.pop('oauth_state', None)
+        session.pop('oauth_nonce', None)
+        return redirect(url_for('index'))
+
+    @app.route('/admin/logout', methods=['GET'])
+    def logout():
+        session.clear()
+        if config.cognito_base_url and config.oauth_logout_redirect_uri and config.cognito_client_id:
+            params = {
+                'client_id': config.cognito_client_id,
+                'logout_uri': config.oauth_logout_redirect_uri,
+            }
+            return redirect(f"{config.cognito_base_url}/logout?{urlencode(params)}")
+        return redirect('/admin/signin')
     
     @app.route('/upload', methods=['POST'])
+    @app.route('/admin/upload', methods=['POST'])
     def upload_file():
         """Upload and process FLAC file"""
+        auth_redirect = _require_login()
+        if auth_redirect:
+            return auth_redirect
         try:
             # Check if file is present
             if 'file' not in request.files:
@@ -99,6 +217,7 @@ def create_app(config: Config = None) -> Flask:
             return jsonify({"error": "Internal server error"}), 500
     
     @app.route('/files/<path:filename>', methods=['GET'])
+    @app.route('/admin/files/<path:filename>', methods=['GET'])
     def serve_file(filename):
         """Serve uploaded files from appropriate directory"""
         try:

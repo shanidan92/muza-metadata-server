@@ -1,266 +1,290 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Muza Utils - FLAC Upload</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f5f5f5;
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        color: #333;
+        text-align: center;
+        margin-bottom: 30px;
+      }
+      .upload-area {
+        border: 2px dashed #ddd;
+        border-radius: 10px;
+        padding: 40px;
+        text-align: center;
+        margin-bottom: 20px;
+        transition: border-color 0.3s;
+      }
+      .upload-area.dragover {
+        border-color: #007bff;
+        background-color: #f8f9fa;
+      }
+      .upload-area p {
+        margin: 10px 0;
+        color: #666;
+      }
+      .file-input {
+        display: none;
+      }
+      .folder-input {
+        display: none;
+      }
+      .upload-btn {
+        background-color: #007bff;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+      }
+      .upload-btn:hover {
+        background-color: #0056b3;
+      }
+      .upload-btn:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+      }
+      .upload-btn.secondary {
+        background-color: #6c757d;
+      }
+      .upload-btn.secondary:hover {
+        background-color: #545b62;
+      }
+      .upload-btn.secondary:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+      }
+      .file-info {
+        background-color: #e7f3ff;
+        padding: 15px;
+        border-radius: 5px;
+        margin: 15px 0;
+        display: none;
+      }
+      .response-area {
+        margin-top: 20px;
+        padding: 15px;
+        border-radius: 5px;
+        display: none;
+      }
+      .response-success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+      }
+      .response-error {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+      }
+      .loading {
+        text-align: center;
+        color: #666;
+        display: none;
+      }
+      .spinner {
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #007bff;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 10px;
+      }
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
         }
-        .container {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        100% {
+          transform: rotate(360deg);
         }
-        h1 {
-            color: #333;
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .upload-area {
-            border: 2px dashed #ddd;
-            border-radius: 10px;
-            padding: 40px;
-            text-align: center;
-            margin-bottom: 20px;
-            transition: border-color 0.3s;
-        }
-        .upload-area.dragover {
-            border-color: #007bff;
-            background-color: #f8f9fa;
-        }
-        .upload-area p {
-            margin: 10px 0;
-            color: #666;
-        }
-        .file-input {
-            display: none;
-        }
-        .folder-input {
-            display: none;
-        }
-        .upload-btn {
-            background-color: #007bff;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        .upload-btn:hover {
-            background-color: #0056b3;
-        }
-        .upload-btn:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
-        .upload-btn.secondary {
-            background-color: #6c757d;
-        }
-        .upload-btn.secondary:hover {
-            background-color: #545b62;
-        }
-        .upload-btn.secondary:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
-        .file-info {
-            background-color: #e7f3ff;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 15px 0;
-            display: none;
-        }
-        .response-area {
-            margin-top: 20px;
-            padding: 15px;
-            border-radius: 5px;
-            display: none;
-        }
-        .response-success {
-            background-color: #d4edda;
-            border: 1px solid #c3e6cb;
-            color: #155724;
-        }
-        .response-error {
-            background-color: #f8d7da;
-            border: 1px solid #f5c6cb;
-            color: #721c24;
-        }
-        .loading {
-            text-align: center;
-            color: #666;
-            display: none;
-        }
-        .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #007bff;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 10px;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        pre {
-            background-color: #f8f9fa;
-            padding: 15px;
-            border-radius: 5px;
-            overflow-x: auto;
-            white-space: pre-wrap;
-        }
-        .button-group {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-        .progress-container {
-            margin: 15px 0;
-            display: none;
-        }
-        .progress-bar {
-            width: 100%;
-            height: 20px;
-            background-color: #f3f3f3;
-            border-radius: 10px;
-            overflow: hidden;
-            border: 1px solid #ddd;
-        }
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #007bff, #0056b3);
-            width: 0%;
-            transition: width 0.3s ease;
-            border-radius: 10px;
-        }
-        .progress-text {
-            text-align: center;
-            margin: 8px 0;
-            font-size: 14px;
-            color: #666;
-        }
-        .progress-details {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12px;
-            color: #888;
-            margin-top: 5px;
-        }
-        .upload-area.upload-disabled {
-            cursor: not-allowed;
-            background-color: #f8f9fa;
-            border-color: #ccc;
-        }
-        .upload-area.upload-disabled p {
-            color: #999;
-        }
-        .upload-area.upload-disabled .upload-btn {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
-        .upload-area.upload-disabled .upload-btn:hover {
-            background-color: #ccc;
-        }
+      }
+      pre {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 5px;
+        overflow-x: auto;
+        white-space: pre-wrap;
+      }
+      .button-group {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      .progress-container {
+        margin: 15px 0;
+        display: none;
+      }
+      .progress-bar {
+        width: 100%;
+        height: 20px;
+        background-color: #f3f3f3;
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid #ddd;
+      }
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #007bff, #0056b3);
+        width: 0%;
+        transition: width 0.3s ease;
+        border-radius: 10px;
+      }
+      .progress-text {
+        text-align: center;
+        margin: 8px 0;
+        font-size: 14px;
+        color: #666;
+      }
+      .progress-details {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        color: #888;
+        margin-top: 5px;
+      }
+      .upload-area.upload-disabled {
+        cursor: not-allowed;
+        background-color: #f8f9fa;
+        border-color: #ccc;
+      }
+      .upload-area.upload-disabled p {
+        color: #999;
+      }
+      .upload-area.upload-disabled .upload-btn {
+        background-color: #ccc;
+        cursor: not-allowed;
+      }
+      .upload-area.upload-disabled .upload-btn:hover {
+        background-color: #ccc;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <header>
-            <h1>Muza Utils - FLAC File Upload</h1>
-        </header>
-        
-        <main>
-            <form id="uploadForm" enctype="multipart/form-data">
-                <!-- Upload Area -->
-                <section class="upload-section">
-                    <div class="upload-area" id="uploadArea">
-                        <p><strong>Drop FLAC files/folders here or click to select</strong></p>
-                        <p>Supports directories and multiple files</p>
-                       
-                        <!-- Hidden folder input -->
-                        <input type="file" 
-                               id="folderInput" 
-                               class="folder-input" 
-                               accept=".flac" 
-                               multiple 
-                               webkitdirectory
-                               aria-label="Select folder">
+      <header>
+        <h1>Muza Admin UI - FLAC Upload</h1>
+        <div style="text-align: right; margin-top: -40px">
+          <a href="/logout" style="color: #007bff; text-decoration: none"
+            >Logout</a
+          >
+        </div>
+      </header>
 
-                        <!-- Action buttons -->
-                        <div class="button-group">
-                            <button type="button" 
-                                    class="upload-btn" 
-                                    onclick="document.getElementById('folderInput').click()">
-                                Choose Folder
-                            </button>
+      <main>
+        <form id="uploadForm" enctype="multipart/form-data">
+          <!-- Upload Area -->
+          <section class="upload-section">
+            <div class="upload-area" id="uploadArea">
+              <p>
+                <strong>Drop FLAC files/folders here or click to select</strong>
+              </p>
+              <p>Supports directories and multiple files</p>
 
-                            <button type="button" 
-                                    class="upload-btn secondary" 
-                                    id="clearBtn"
-                                    disabled>
-                                Clear Selection
-                            </button>
-                        </div>
-                    </div>
-                </section>
-                
-                <!-- File Information Display -->
-                <section class="file-info-section">
-                    <div class="file-info" id="fileInfo" role="log" aria-live="polite"></div>
-                </section>
-                
-                <!-- Submit Button -->
-                <section class="submit-section">
-                    <button type="submit" 
-                            class="upload-btn" 
-                            id="submitBtn" 
-                            disabled>
-                        Upload and Process
-                    </button>
-                </section>
-            </form>
-            
-            <!-- Loading Indicator -->
-            <section class="loading-section">
-                <div class="loading" id="loading" role="status" aria-live="polite">
-                    <div class="spinner" aria-hidden="true"></div>
-                    <p>Processing FLAC files...</p>
-                    
-                    <!-- Progress Bar -->
-                    <div class="progress-container" id="progressContainer">
-                        <div class="progress-text" id="progressText">
-                            Uploading files: 0 / 0
-                        </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill" id="progressFill"></div>
-                        </div>
-                        <div class="progress-details">
-                            <span id="progressCompleted">Completed: 0</span>
-                            <span id="progressRemaining">Remaining: 0</span>
-                        </div>
-                    </div>
-                </div>
-            </section>
-            
-            <!-- Response Area -->
-            <section class="response-section">
-                <div class="response-area" id="responseArea" role="alert" aria-live="assertive"></div>
-            </section>
-        </main>
+              <!-- Hidden folder input -->
+              <input
+                type="file"
+                id="folderInput"
+                class="folder-input"
+                accept=".flac"
+                multiple
+                webkitdirectory
+                aria-label="Select folder"
+              />
+
+              <!-- Action buttons -->
+              <div class="button-group">
+                <button
+                  type="button"
+                  class="upload-btn"
+                  onclick="document.getElementById('folderInput').click()"
+                >
+                  Choose Folder
+                </button>
+
+                <button
+                  type="button"
+                  class="upload-btn secondary"
+                  id="clearBtn"
+                  disabled
+                >
+                  Clear Selection
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- File Information Display -->
+          <section class="file-info-section">
+            <div
+              class="file-info"
+              id="fileInfo"
+              role="log"
+              aria-live="polite"
+            ></div>
+          </section>
+
+          <!-- Submit Button -->
+          <section class="submit-section">
+            <button type="submit" class="upload-btn" id="submitBtn" disabled>
+              Upload and Process
+            </button>
+          </section>
+        </form>
+
+        <!-- Loading Indicator -->
+        <section class="loading-section">
+          <div class="loading" id="loading" role="status" aria-live="polite">
+            <div class="spinner" aria-hidden="true"></div>
+            <p>Processing FLAC files...</p>
+
+            <!-- Progress Bar -->
+            <div class="progress-container" id="progressContainer">
+              <div class="progress-text" id="progressText">
+                Uploading files: 0 / 0
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+              </div>
+              <div class="progress-details">
+                <span id="progressCompleted">Completed: 0</span>
+                <span id="progressRemaining">Remaining: 0</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Response Area -->
+        <section class="response-section">
+          <div
+            class="response-area"
+            id="responseArea"
+            role="alert"
+            aria-live="assertive"
+          ></div>
+        </section>
+      </main>
     </div>
 
     <!-- Application Script -->
     <script type="module" src="static/js/main.js"></script>
-</body>
+  </body>
 </html>

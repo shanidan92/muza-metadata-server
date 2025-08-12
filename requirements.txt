@@ -13,3 +13,4 @@ mutagen
 musicbrainzngs
 requests
 python-dotenv
+PyJWT

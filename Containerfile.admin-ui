@@ -41,7 +41,8 @@ ENV PYTHONUNBUFFERED=1 \
     ADMIN_UI_PORT=5002 \
     DEBUG=false \
     AUDIO_UPLOAD_DIR=/data/audio \
-    IMAGE_UPLOAD_DIR=/data/images 
+    IMAGE_UPLOAD_DIR=/data/images \
+    AWS_REGION=eu-west-1
 
 # Health check for the admin UI
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

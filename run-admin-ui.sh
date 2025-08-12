@@ -10,10 +10,12 @@ MUZA_SERVER_URL=${MUZA_SERVER_URL:-"http://localhost:8000/graphql"}
 AUDIO_UPLOAD_DIR=${AUDIO_UPLOAD_DIR:-"/data/audio"}
 IMAGE_UPLOAD_DIR=${IMAGE_UPLOAD_DIR:-"/data/images"}
 
-echo "🔐 Starting Muza Admin UI (VPN-only access)"
+echo "🔐 Starting Muza Admin UI"
 echo "Port: $ADMIN_UI_PORT"
 echo "Debug: $DEBUG"
 echo "Muza Server: $MUZA_SERVER_URL"
+echo "AWS Region: ${AWS_REGION:-unset}"
+echo "Cognito Base URL: ${COGNITO_BASE_URL:-unset}"
 echo "Audio Upload Dir: $AUDIO_UPLOAD_DIR"
 echo "Image Upload Dir: $IMAGE_UPLOAD_DIR"
 
