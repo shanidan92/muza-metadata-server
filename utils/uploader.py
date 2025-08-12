@@ -71,7 +71,7 @@ def create_app(config: Config = None) -> Flask:
         return None
 
     @app.route('/', methods=['GET'])
-    @app.route('/admin', methods=['GET'])
+    @app.route('/admin/', methods=['GET'])
     def index():
         """Serve the upload interface"""
         auth_redirect = _require_login()
