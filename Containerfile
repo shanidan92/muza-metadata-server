@@ -1,40 +1,60 @@
-# Use an official Python base image
-FROM python:3.12-slim
+# Use Node.js official runtime as base image
+FROM node:18-alpine
 
-# Create a working directory
+# Set working directory
 WORKDIR /app
 
-# Copy the package files first
-COPY setup.py .
-COPY requirements.txt .
-COPY README.md .
+# Install system dependencies for audio processing
+RUN apk add --no-cache \
+    ffmpeg \
+    python3 \
+    make \
+    g++ \
+    sqlite
 
-# Copy the application code
-COPY muza_metadata_server/ muza_metadata_server/
+# Copy package files
+COPY package.json package-lock.json* ./
 
-# Copy and make the run script executable
-COPY run.sh .
-COPY wsgi.py .
-RUN chmod +x run.sh
+# Install Node.js dependencies
+RUN npm ci --only=production
 
-# Install the package and dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy application source code
+COPY src/ ./src/
+COPY data/ ./data/
+COPY downloads/ ./downloads/
 
-# Expose both HTTP and HTTPS ports
-EXPOSE 5000 5443
+# Create directories for uploads and logs
+RUN mkdir -p /app/data/uploads /app/logs
 
 # Set environment variables
-# PYTHONUNBUFFERED=1 ensures Python output is sent straight to terminal without buffering
-# good for log handling in containerized environments
-ENV PYTHONUNBUFFERED=1 \
-    DB_PATH=/data/music.db \
-    PORT=5000 \
-    WORKERS=4 \
-    SSL_ENABLE=false \
-    SSL_CERT=/app/certs/server.crt \
-    SSL_KEY=/app/certs/server.key \
-    DEBUG=false \
-    HOOK_COMMAND=""
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOST=0.0.0.0
+ENV DB_DIALECT=sqlite
+ENV DB_STORAGE=/app/data/database.sqlite
 
-# Default command using Gunicorn with config
-ENTRYPOINT ["./run.sh"]
+# Expose port
+EXPOSE 3000
+
+# Create non-root user for security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodeuser -u 1001
+
+# Change ownership of application files
+RUN chown -R nodeuser:nodejs /app
+
+# Switch to non-root user
+USER nodeuser
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "const http = require('http'); \
+    const options = { hostname: 'localhost', port: process.env.PORT || 3000, path: '/health', timeout: 2000 }; \
+    const req = http.request(options, (res) => { \
+      if (res.statusCode === 200) process.exit(0); else process.exit(1); \
+    }); \
+    req.on('error', () => process.exit(1)); \
+    req.end();"
+
+# Start the application
+CMD ["npm", "start"]

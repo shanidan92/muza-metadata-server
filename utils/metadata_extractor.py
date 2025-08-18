@@ -2,7 +2,7 @@ import logging
 from typing import Dict, Optional
 from mutagen.flac import FLAC
 from mutagen import MutagenError 
-from file_handler import FileHandler
+from .file_handler import FileHandler
 
 logger = logging.getLogger(__name__)
 

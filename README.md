@@ -1,154 +1,304 @@
-# Muza Metadata Server
+# Muza Metadata Server (Node.js)
 
-A GraphQL server for managing music track metadata.
+A modern, high-performance metadata server for the Muza music application, built with Node.js, Express, GraphQL, and Sequelize.
 
 ## Features
 
-- GraphQL API for querying and managing music track metadata
-- CQRS pattern (append-only) API to simplify conflict resolution and concurrency issues 
-- SQLite database for data storage
-- SSL support for secure communication
-- Post-insert hooks for event-driven integrations and data synchronization
+- **GraphQL API**: Comprehensive GraphQL API for music metadata operations
+- **Multi-Database Support**: SQLite, PostgreSQL, and MySQL support via Sequelize
+- **Audio Metadata Extraction**: Automatic extraction of metadata from audio files
+- **MusicBrainz Integration**: Integration with MusicBrainz for enhanced metadata
+- **File Management**: Robust file handling and storage management
+- **CLI Tools**: Command-line interface for database management and imports
+- **Container Support**: Docker/Podman ready with optimized containerization
+- **Production Ready**: Built with security, performance, and scalability in mind
 
-## Installation
+## Quick Start
 
-1. Create a virtual environment:
+### Prerequisites
+
+- Node.js 18 or higher
+- npm or yarn
+- SQLite (included) or PostgreSQL/MySQL (for production)
+
+### Installation
+
+1. **Clone the repository**
 ```bash
-# Init venv
-make venv
-# Activate venv
-source venv/bin/activate
+git clone <repository-url>
+cd muza-metadata-server
 ```
 
-2. Install dependencies:
+2. **Install dependencies**
 ```bash
-make install
+npm install
 ```
 
-## Usage
-
-### Development Server
+3. **Set up environment**
 ```bash
-make run-dev
+cp .env.example .env
+# Edit .env with your configuration
 ```
 
-### Production Server
+4. **Initialize database**
 ```bash
-# Without SSL
-make run
-
-# With SSL
-make certs  # Generate self-signed certificates first
-make run-ssl
+npm run cli db init
 ```
 
-## Configuration
+5. **Start the development server**
+```bash
+npm run dev
+```
 
-The server can be configured using environment variables or command-line arguments:
+The server will start at http://localhost:3000 with GraphQL playground at http://localhost:3000/graphql
 
-- `PORT`: Server port (default: 5000)
-- `DB_PATH`: SQLite database path (default: music.db)
-- `DEBUG`: Enable debug mode (default: false)
-- `HOOK_COMMAND`: Command to execute after successful track insertion (optional)
+### Docker Deployment
 
-## Hooks
+```bash
+# Build the container
+docker build -t muza-metadata-server .
 
-The server supports post-insert hooks that are executed after a track is successfully added to the database. This can be useful for:
+# Run the container
+docker run -p 3000:3000 -v $(pwd)/data:/app/data muza-metadata-server
+```
 
-- Forwarding data to other servers
-- Triggering external processes
-- Implementing event-driven architectures
-- Synchronizing multiple Muza instances
+## API Usage
 
-For examples and more information about hooks, check out the [playground directory](playground/README_hooks.md).
+### GraphQL Endpoints
 
-## GraphQL API
+- **GraphQL API**: `http://localhost:3000/graphql`
+- **GraphQL Playground**: Available in development mode
+- **Health Check**: `http://localhost:3000/health`
 
-Access the GraphQL playground at `http://localhost:5000/graphql`
+### Example Queries
 
-### Basic Examples
-
-1. Create a basic track:
+#### Get all artists
 ```graphql
-mutation {
-  createMusicTrack(
-    songTitle: "Hey Jude"
-    artistMain: "Paul McCartney"
-    bandName: "The Beatles"
-    albumTitle: "The Beatles (White Album)"
-    yearReleased: 1968
-  ) {
-    ok
-    track {
+query {
+  artists(limit: 10) {
+    id
+    name
+    musicbrainzId
+    albums {
       id
-      uuid
-      songTitle
+      title
+      releaseDate
     }
   }
 }
 ```
 
-2. Search tracks:
+#### Search for tracks
 ```graphql
-{
-  searchTracks(
-    bandNameContains: "Beatles"
-    minYearReleased: 1965
-    maxYearReleased: 1970
-  ) {
-    songTitle
-    artistMain
-    bandName
-    yearReleased
+query {
+  searchTracks(query: "rock", limit: 5) {
+    id
+    title
+    artist {
+      name
+    }
+    album {
+      title
+    }
+    duration
+    genres
   }
 }
 ```
 
-For more complex examples and test data, check out the [playground directory](playground/).
-
-## Containerization
-
-### Building the Container
-
-Using Podman:
-```bash
-make container
+#### Create a new artist
+```graphql
+mutation {
+  createArtist(input: {
+    name: "New Artist"
+    type: "Person"
+    area: "United States"
+  }) {
+    id
+    name
+    createdAt
+  }
+}
 ```
 
-### Running the Container
+## CLI Usage
 
-Standard HTTP mode:
+The CLI provides powerful tools for managing your metadata database:
+
+### Database Management
 ```bash
-mkdir data # create a directory for percistant data
+# Initialize database
+npm run cli db init
 
-make container-run
+# Reset database (delete all data)
+npm run cli db reset --yes
+
+# Seed with sample data
+npm run cli db seed
+
+# Show statistics
+npm run cli stats
 ```
 
-With SSL enabled:
+### Import Audio Files
 ```bash
-make certs  # Generate self-signed certificates first
-mkdir data # create a directory for percistant data
+# Import single file
+npm run cli import file /path/to/song.mp3
 
-make container-run-ssl
+# Import entire directory
+npm run cli import directory /path/to/music --recursive
+
+# Import with custom extensions
+npm run cli import directory /path/to/music --extensions mp3,flac,m4a
 ```
 
-### Container Configuration
-
-The container accepts the following environment variables:
-
-- `PORT`: Server port (default: 5000)
-- `DB_PATH`: Database path (default: /data/music.db)
-- `SSL_ENABLE`: Enable SSL (default: false)
-- `SSL_CERT`: SSL certificate path (default: /app/certs/server.crt)
-- `SSL_KEY`: SSL private key path (default: /app/certs/server.key)
-- `WORKERS`: Number of Gunicorn workers (default: 4)
-- `HOOK_COMMAND`: Command to execute after successful track insertion (optional)
-
-### Persistent Storage
-
-Mount a volume to `/data` to persist the database:
+### Start Server
 ```bash
-mkdir data # create a directory for percistant data
-
-podman run -p 5000:5000 -v $(pwd)/data:/data:Z quay.io/yaacov/muza-metadata-server:latest
+# Start server with custom port
+npm run cli server --port 8080 --host 0.0.0.0
 ```
+
+## Configuration
+
+Configuration is managed through environment variables. Copy `.env.example` to `.env` and customize:
+
+### Database Configuration
+```env
+# Use SQLite (default)
+DB_DIALECT=sqlite
+DB_STORAGE=./data/database.sqlite
+
+# Use PostgreSQL
+DB_DIALECT=postgres
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=user
+DB_PASSWORD=password
+DB_NAME=muza_metadata
+
+# Use MySQL
+DB_DIALECT=mysql
+DB_HOST=localhost
+DB_PORT=3306
+DB_USERNAME=user
+DB_PASSWORD=password
+DB_NAME=muza_metadata
+```
+
+### Server Configuration
+```env
+NODE_ENV=production
+HOST=0.0.0.0
+PORT=3000
+CORS_ORIGIN=http://localhost:3000,http://localhost:3001
+```
+
+## Data Models
+
+### Artist
+- Comprehensive artist information
+- MusicBrainz integration
+- Biographical data and metadata
+- Support for persons, groups, orchestras, etc.
+
+### Album
+- Album/release information
+- Multi-format support (Album, Single, EP, etc.)
+- Release dates and catalog information
+- Cover art and credits
+
+### MusicTrack
+- Individual track metadata
+- Audio format and quality information
+- Musical analysis data (tempo, key, etc.)
+- File management and integrity
+
+## Architecture
+
+### Core Components
+
+- **Express.js**: Web framework and HTTP server
+- **Apollo Server**: GraphQL API server
+- **Sequelize**: Database ORM with migrations
+- **music-metadata**: Audio file metadata extraction
+- **Commander.js**: CLI framework
+
+### Directory Structure
+```
+src/
+├── app.js              # Main application server
+├── cli.js              # Command-line interface
+├── config.js           # Configuration management
+├── database.js         # Database connection and setup
+├── schema.js           # GraphQL schema and resolvers
+├── utils.js            # Utility functions
+└── models/             # Sequelize models
+    ├── artist.js       # Artist model
+    ├── album.js        # Album model
+    ├── musicTrack.js   # Music track model
+    └── index.js        # Model exports
+```
+
+## Development
+
+### Scripts
+```bash
+npm start           # Start production server
+npm run dev         # Start development server with auto-reload
+npm run cli         # Run CLI commands
+npm test            # Run test suite
+```
+
+### Database Migrations
+```bash
+# Auto-sync database schema (development)
+DB_SYNC=true npm run dev
+
+# Force recreate tables (development only)
+DB_FORCE_SYNC=true npm run dev
+```
+
+## Production Deployment
+
+### Environment Setup
+```env
+NODE_ENV=production
+DB_DIALECT=postgres
+DB_LOGGING=false
+DB_SYNC=false
+DEBUG=false
+```
+
+### Performance Optimization
+- Use PostgreSQL or MySQL for production
+- Enable connection pooling
+- Configure proper indexes
+- Use a reverse proxy (nginx)
+- Set up monitoring and logging
+
+### Security Considerations
+- Use environment variables for secrets
+- Enable CORS restrictions
+- Use HTTPS in production
+- Regular security updates
+- Database connection encryption
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests for new functionality
+5. Ensure all tests pass
+6. Submit a pull request
+
+## License
+
+This project is licensed under the ISC License.
+
+## Support
+
+For questions, issues, or contributions, please:
+- Open an issue on GitHub
+- Check the documentation
+- Review the CLI help: `npm run cli --help`

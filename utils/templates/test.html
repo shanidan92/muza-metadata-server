@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple File Upload Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .upload-area { border: 2px dashed #ccc; padding: 20px; margin: 20px 0; text-align: center; }
+        .file-input { display: none; }
+        button { padding: 10px 20px; margin: 10px; cursor: pointer; }
+        #fileInfo { margin: 20px 0; padding: 10px; background: #f0f0f0; }
+    </style>
+</head>
+<body>
+    <h1>Simple File Upload Test</h1>
+    
+    <div class="upload-area">
+        <p>Click the button below to select a file</p>
+        <input type="file" id="fileInput" class="file-input" accept=".flac">
+        <button type="button" id="chooseFileBtn">Choose File</button>
+    </div>
+    
+    <div id="fileInfo" style="display: none;"></div>
+    
+    <button type="button" id="testBtn">Test Button Click</button>
+    
+    <script>
+        console.log('Script starting...');
+        
+        // Test if basic JavaScript is working
+        document.getElementById('testBtn').addEventListener('click', function() {
+            alert('Test button works!');
+            console.log('Test button clicked');
+        });
+        
+        // File selection
+        const chooseFileBtn = document.getElementById('chooseFileBtn');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        
+        console.log('Elements found:', {
+            chooseFileBtn: !!chooseFileBtn,
+            fileInput: !!fileInput,
+            fileInfo: !!fileInfo
+        });
+        
+        chooseFileBtn.addEventListener('click', function() {
+            console.log('Choose file button clicked');
+            fileInput.click();
+        });
+        
+        fileInput.addEventListener('change', function(e) {
+            console.log('File input changed:', e.target.files);
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                fileInfo.style.display = 'block';
+                fileInfo.innerHTML = `
+                    <strong>Selected file:</strong> ${file.name}<br>
+                    <strong>Size:</strong> ${(file.size / 1024 / 1024).toFixed(2)} MB<br>
+                    <strong>Type:</strong> ${file.type || 'audio/flac'}
+                `;
+                console.log('File selected:', file.name);
+            }
+        });
+        
+        console.log('Script loaded successfully');
+    </script>
+</body>
+</html>
+
+

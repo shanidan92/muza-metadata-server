@@ -80,7 +80,47 @@ def create_app(config: Config = None) -> Flask:
                 relative_path, request.url_root
             )
             
-            # Insert into Muza database
+            # Find or create artist
+            artist_id = None
+            if enhanced_metadata.get('artist_main'):
+                artist = muza_client.find_or_create_artist(enhanced_metadata)
+                if artist:
+                    artist_id = artist.get('id')
+            
+            # Find or create album (skip cover download if album exists)
+            album_id = None
+            album_existed = False
+            if enhanced_metadata.get('album_title'):
+                # Check if album exists first
+                existing_album = muza_client.find_existing_album(enhanced_metadata, artist_id)
+                if existing_album:
+                    album_id = existing_album.get('id')
+                    album_existed = True
+                    logger.info(f"Using existing album: {existing_album.get('title')} (ID: {album_id})")
+                else:
+                    # Create new album with cover
+                    album = muza_client.create_album(enhanced_metadata, artist_id)
+                    if album:
+                        album_id = album.get('id')
+                        logger.info(f"Created new album: {album.get('title')} (ID: {album_id})")
+            
+            # Remove album cover from track metadata if album already existed
+            if album_existed and 'album_cover' in enhanced_metadata:
+                del enhanced_metadata['album_cover']
+            
+            # Add foreign key references to track metadata
+            if artist_id:
+                enhanced_metadata['artist_id'] = artist_id
+            if album_id:
+                enhanced_metadata['album_id'] = album_id
+            
+            # Remove fields that are now in Artist/Album tables
+            fields_to_remove = ['album_title', 'album_cover', 'band_name', 'artist_photo', 
+                              'label', 'label_logo', 'year_released']
+            for field in fields_to_remove:
+                enhanced_metadata.pop(field, None)
+            
+            # Insert track into Muza database
             result = muza_client.create_track(enhanced_metadata)
             if not result:
                 return jsonify({"error": "Failed to insert track into database"}), 500

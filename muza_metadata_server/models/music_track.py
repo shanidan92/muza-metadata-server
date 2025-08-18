@@ -20,23 +20,14 @@ class MusicTrack(Base):
     uuid = Column(String(36), unique=True, nullable=False, index=True)
     original_uuid = Column(String(36), nullable=True)
 
-    # Album and label information
-    album_cover = Column(Text, nullable=True)
-    album_title = Column(String(255), nullable=True, index=True)
-    label = Column(String(255), nullable=True, index=True)
-    label_logo = Column(Text, nullable=True)
-
-    # Artist and band information
-    band_name = Column(String(255), nullable=True, index=True)
-    artist_photo = Column(Text, nullable=True)
-    artist_main = Column(String(255), nullable=True, index=True)
+    # Keep only track-specific artist info
+    artist_main = Column(String(255), nullable=True, index=True)  # For backward compatibility
     instrument = Column(String(255), nullable=True)
     other_artist_playing = Column(Text, nullable=True)
     other_instrument = Column(Text, nullable=True)
 
-    # Year information
+    # Track-specific year info (if different from album)
     year_recorded = Column(Integer, nullable=True, index=True)
-    year_released = Column(Integer, nullable=True, index=True)
 
     # Song information
     song_order = Column(Integer, nullable=True)
@@ -68,18 +59,12 @@ class MusicTrack(Base):
             "id": self.id,
             "uuid": self.uuid,
             "original_uuid": self.original_uuid,
-            "album_cover": self.album_cover,
-            "album_title": self.album_title,
-            "label": self.label,
-            "label_logo": self.label_logo,
-            "band_name": self.band_name,
-            "artist_photo": self.artist_photo,
+
             "artist_main": self.artist_main,
             "instrument": self.instrument,
             "other_artist_playing": self.other_artist_playing,
             "other_instrument": self.other_instrument,
             "year_recorded": self.year_recorded,
-            "year_released": self.year_released,
             "song_order": self.song_order,
             "song_title": self.song_title,
             "duration_seconds": self.duration_seconds,
