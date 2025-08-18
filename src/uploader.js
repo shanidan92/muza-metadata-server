@@ -219,27 +219,69 @@ class NodeUploader {
         try {
             const metadata = await musicMetadata.parseFile(filePath);
             
-            return {
+            // Extract cover art
+            const coverPath = await this.extractCoverArt(metadata);
+            
+            const extractedMetadata = {
+                duration_seconds: Math.floor(metadata.format.duration || 0),
                 song_title: metadata.common.title,
                 artist_main: metadata.common.artist,
                 album_title: metadata.common.album,
-                track_number: metadata.common.track.no,
-                total_tracks: metadata.common.track.of,
+                song_order: metadata.common.track?.no,                
                 disc_number: metadata.common.disk.no,
                 total_discs: metadata.common.disk.of,
-                year_released: metadata.common.year,
-                genre: metadata.common.genre?.join(', '),
+                composer: metadata.common.composer?.[0],
+                band_name: metadata.common.albumartist,
+                label: metadata.common.label?.[0],
+                year_recorded: metadata.common.date ? parseInt(metadata.common.date.split('-')[0]) : null,
+                year_released: metadata.common.originaldate ? parseInt(metadata.common.originaldate.split('-')[0]) : metadata.common.year,
+                  genre: metadata.common.genre?.join(', '),
                 duration: Math.round(metadata.format.duration),
                 bitrate: metadata.format.bitrate,
                 sample_rate: metadata.format.sampleRate,
                 channels: metadata.format.numberOfChannels,
+                total_tracks: metadata.common.track.of,
+                instrument: metadata.common.instrument?.[0],
+                comments: metadata.common.comment?.[0],
+                other_artist_playing: metadata.common.performer?.[0],
                 musicbrainz_track_id: metadata.common.musicbrainz_recordingid,
                 musicbrainz_album_id: metadata.common.musicbrainz_albumid,
                 musicbrainz_artist_id: metadata.common.musicbrainz_artistid,
+                album_cover: coverPath,
                 lyrics: metadata.common.lyrics?.[0]?.text
+
             };
+            
+            // Clean up null/undefined values
+            return Object.fromEntries(
+                Object.entries(extractedMetadata).filter(([_, v]) => v != null)
+            );
         } catch (error) {
             console.error('Error extracting metadata:', error);
+            return null;
+        }
+    }
+    
+    async extractCoverArt(metadata) {
+        try {
+            const pictures = metadata.common?.picture;
+            if (!pictures || pictures.length === 0) {
+                return null;
+            }
+
+            const picture = pictures[0];
+            const artist = metadata.common.artist || 'unknown';
+            const album = metadata.common.album || 'unknown';
+            
+            const fileName = `cover_${artist}_${album}`.replace(/\s+/g, '_').replace(/[^\w-]/g, '') + '.jpg';
+            const filePath = path.join(this.config.uploadDir, fileName);
+            
+            await fs.writeFile(filePath, picture.data);
+            console.log(`Downloaded album cover: ${fileName}`);
+            
+            return fileName;
+        } catch (error) {
+            console.error(`Error extracting cover art: ${error.message}`);
             return null;
         }
     }
