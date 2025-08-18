@@ -249,7 +249,7 @@ def create_app(config: Config = None) -> Flask:
             
             # Set playback URL. If CDN is configured, point to expected HLS manifest.
             rel_base = os.path.splitext(os.path.basename(relative_path))[0]
-            expected_hls_relative = f"audio/hls/{rel_base}/index.m3u8"
+            expected_hls_relative = f"audio/hls/{rel_base}/{rel_base}.m3u8"
             enhanced_metadata['song_file'] = file_handler.get_file_url(
                 expected_hls_relative, request.url_root
             )
