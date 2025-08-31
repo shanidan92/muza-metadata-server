@@ -1,436 +1,362 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Muza Admin - File Upload</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Muza Utils - FLAC Upload</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        color: #333;
+        text-align: center;
+        margin-bottom: 30px;
+      }
+      .upload-area {
+        border: 2px dashed #ddd;
+        border-radius: 10px;
+        padding: 40px;
+        text-align: center;
+        margin-bottom: 20px;
+        transition: border-color 0.3s;
+      }
+      .upload-area.dragover {
+        border-color: #007bff;
+        background-color: #f8f9fa;
+      }
+      .upload-area p {
+        margin: 10px 0;
+        color: #666;
+      }
+      .file-input {
+        display: none;
+      }
+      .folder-input {
+        display: none;
+      }
+      .upload-btn {
+        background-color: #007bff;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+      }
+      .upload-btn:hover {
+        background-color: #0056b3;
+      }
+      .upload-btn:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+      }
+      .upload-btn.secondary {
+        background-color: #6c757d;
+      }
+      .upload-btn.secondary:hover {
+        background-color: #545b62;
+      }
+      .upload-btn.secondary:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+      }
+      .file-info {
+        background-color: #e7f3ff;
+        padding: 15px;
+        border-radius: 5px;
+        margin: 15px 0;
+        display: none;
+      }
+      .response-area {
+        margin-top: 20px;
+        padding: 15px;
+        border-radius: 5px;
+        display: none;
+      }
+      .response-success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+      }
+      .response-error {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+      }
+      .loading {
+        text-align: center;
+        color: #666;
+        display: none;
+      }
+      .spinner {
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #007bff;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 10px;
+      }
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
         }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
+        100% {
+          transform: rotate(360deg);
         }
-
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
-
-        .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-        }
-
-        .header p {
-            opacity: 0.9;
-            font-size: 1.1rem;
-        }
-
-        .upload-section {
-            padding: 40px;
-        }
-
-        .upload-area {
-            border: 3px dashed #ddd;
-            border-radius: 12px;
-            padding: 60px 20px;
-            text-align: center;
-            transition: all 0.3s ease;
-            cursor: pointer;
-            background: #fafafa;
-        }
-
-        .upload-area:hover {
-            border-color: #667eea;
-            background: #f0f4ff;
-        }
-
-        .upload-area.dragover {
-            border-color: #667eea;
-            background: #e8f2ff;
-            transform: scale(1.02);
-        }
-
-        .upload-icon {
-            font-size: 4rem;
-            color: #667eea;
-            margin-bottom: 20px;
-        }
-
-        .upload-text {
-            font-size: 1.2rem;
-            color: #666;
-            margin-bottom: 10px;
-        }
-
-        .upload-hint {
-            color: #999;
-            font-size: 0.9rem;
-        }
-
-        .file-input {
-            display: none;
-        }
-
-        .btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 12px 30px;
-            border-radius: 6px;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin: 10px 5px;
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .progress-container {
-            margin: 20px 0;
-            display: none;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background: #eee;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            width: 0%;
-            transition: width 0.3s ease;
-        }
-
-        .progress-text {
-            text-align: center;
-            margin-top: 10px;
-            color: #666;
-        }
-
-        .result-container {
-            margin-top: 30px;
-            padding: 20px;
-            border-radius: 8px;
-            display: none;
-        }
-
-        .result-success {
-            background: #d4edda;
-            border: 1px solid #c3e6cb;
-            color: #155724;
-        }
-
-        .result-error {
-            background: #f8d7da;
-            border: 1px solid #f5c6cb;
-            color: #721c24;
-        }
-
-        .file-list {
-            margin-top: 20px;
-        }
-
-        .file-item {
-            display: flex;
-            align-items: center;
-            padding: 15px;
-            border: 1px solid #eee;
-            border-radius: 8px;
-            margin-bottom: 10px;
-            background: white;
-        }
-
-        .file-icon {
-            font-size: 2rem;
-            margin-right: 15px;
-            color: #667eea;
-        }
-
-        .file-info {
-            flex: 1;
-        }
-
-        .file-name {
-            font-weight: 600;
-            color: #333;
-        }
-
-        .file-size {
-            color: #666;
-            font-size: 0.9rem;
-        }
-
-        .file-status {
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-
-        .status-pending {
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        .status-uploading {
-            background: #cce5ff;
-            color: #004085;
-        }
-
-        .status-success {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .status-error {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        .logout-btn {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(255,255,255,0.2);
-            color: white;
-            border: 1px solid rgba(255,255,255,0.3);
-            padding: 8px 16px;
-            border-radius: 4px;
-            text-decoration: none;
-            font-size: 0.9rem;
-            transition: all 0.3s ease;
-        }
-
-        .logout-btn:hover {
-            background: rgba(255,255,255,0.3);
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                margin: 10px;
-            }
-            
-            .header {
-                padding: 20px;
-            }
-            
-            .header h1 {
-                font-size: 2rem;
-            }
-            
-            .upload-section {
-                padding: 20px;
-            }
-            
-            .upload-area {
-                padding: 40px 15px;
-            }
-        }
+      }
+      pre {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 5px;
+        overflow-x: auto;
+        white-space: pre-wrap;
+      }
+      .button-group {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      .progress-container {
+        margin: 15px 0;
+        display: none;
+      }
+      .progress-bar {
+        width: 100%;
+        height: 20px;
+        background-color: #f3f3f3;
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid #ddd;
+      }
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #007bff, #0056b3);
+        width: 0%;
+        transition: width 0.3s ease;
+        border-radius: 10px;
+      }
+      .progress-text {
+        text-align: center;
+        margin: 8px 0;
+        font-size: 14px;
+        color: #666;
+      }
+      .progress-details {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        color: #888;
+        margin-top: 5px;
+      }
+      .upload-area.upload-disabled {
+        cursor: not-allowed;
+        background-color: #f8f9fa;
+        border-color: #ccc;
+      }
+      .upload-area.upload-disabled p {
+        color: #999;
+      }
+      .upload-area.upload-disabled .upload-btn {
+        background-color: #ccc;
+        cursor: not-allowed;
+      }
+      .upload-area.upload-disabled .upload-btn:hover {
+        background-color: #ccc;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <div class="header">
-            <a href="/admin/logout" class="logout-btn">Logout</a>
-            <h1>🎵 Muza Admin</h1>
-            <p>Upload and manage your music files</p>
+      <header>
+        <h1>Muza Admin UI - FLAC Upload</h1>
+        <div style="text-align: right; margin-top: -40px">
+          <a href="/logout" style="color: #007bff; text-decoration: none"
+            >Logout</a
+          >
         </div>
+      </header>
 
-        <div class="upload-section">
+      <main>
+        <form id="uploadForm" enctype="multipart/form-data">
+          <!-- Upload Area -->
+          <section class="upload-section">
             <div class="upload-area" id="uploadArea">
-                <div class="upload-icon">📁</div>
-                <div class="upload-text">Drop FLAC files here or click to browse</div>
-                <div class="upload-hint">Supports FLAC files up to 100MB</div>
-                <input type="file" id="fileInput" class="file-input" accept=".flac" multiple>
-            </div>
+              <p>
+                <strong>Drop FLAC files/folders here or click to select</strong>
+              </p>
+              <p>Supports directories and multiple files</p>
 
+              <!-- Hidden folder input -->
+              <input
+                type="file"
+                id="folderInput"
+                class="folder-input"
+                accept=".flac"
+                multiple
+                webkitdirectory
+                aria-label="Select folder"
+              />
+
+              <!-- Action buttons -->
+              <div class="button-group">
+                <button
+                  type="button"
+                  class="upload-btn"
+                  onclick="document.getElementById('folderInput').click()"
+                >
+                  Choose Folder
+                </button>
+
+                <button
+                  type="button"
+                  class="upload-btn secondary"
+                  id="clearBtn"
+                  disabled
+                >
+                  Clear Selection
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- File Information Display -->
+          <section class="file-info-section">
+            <div
+              class="file-info"
+              id="fileInfo"
+              role="log"
+              aria-live="polite"
+            ></div>
+          </section>
+
+          <!-- Submit Button -->
+          <section class="submit-section">
+            <button type="submit" class="upload-btn" id="submitBtn" disabled>
+              Upload and Process
+            </button>
+          </section>
+        </form>
+
+        <!-- Cover Art Upload -->
+        <section class="cover-upload-section" style="margin-top: 40px">
+          <h2>Cover Art Upload</h2>
+          <form id="coverUploadForm">
+            <div
+              class="upload-area"
+              id="coverUploadArea"
+              style="margin-top: 10px"
+            >
+              <p><strong>Select a cover image to upload</strong></p>
+              <input
+                type="file"
+                id="coverFileInput"
+                accept="image/*"
+                aria-label="Select cover image"
+              />
+              <div class="button-group" style="margin-top: 10px">
+                <button type="submit" id="coverUploadBtn" class="upload-btn">
+                  Upload Cover
+                </button>
+              </div>
+            </div>
+            <div
+              style="
+                margin-top: 10px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+              "
+            >
+              <img
+                id="coverPreview"
+                alt="Cover preview"
+                style="
+                  display: none;
+                  max-height: 120px;
+                  border-radius: 6px;
+                  border: 1px solid #ddd;
+                "
+              />
+              <input
+                type="text"
+                id="coverCdnUrl"
+                placeholder="CDN URL will appear here"
+                style="
+                  flex: 1;
+                  padding: 8px;
+                  border: 1px solid #ccc;
+                  border-radius: 6px;
+                "
+                readonly
+              />
+              <button
+                type="button"
+                id="copyCdnUrlBtn"
+                class="upload-btn secondary"
+              >
+                Copy
+              </button>
+            </div>
+          </form>
+          <div
+            class="response-area"
+            id="coverResponseArea"
+            style="display: none; margin-top: 10px"
+          ></div>
+        </section>
+
+        <!-- Loading Indicator -->
+        <section class="loading-section">
+          <div class="loading" id="loading" role="status" aria-live="polite">
+            <div class="spinner" aria-hidden="true"></div>
+            <p>Processing FLAC files...</p>
+
+            <!-- Progress Bar -->
             <div class="progress-container" id="progressContainer">
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill"></div>
-                </div>
-                <div class="progress-text" id="progressText">Uploading...</div>
+              <div class="progress-text" id="progressText">
+                Uploading files: 0 / 0
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+              </div>
+              <div class="progress-details">
+                <span id="progressCompleted">Completed: 0</span>
+                <span id="progressRemaining">Remaining: 0</span>
+              </div>
             </div>
+          </div>
+        </section>
 
-            <div class="file-list" id="fileList"></div>
-
-            <div class="result-container" id="resultContainer"></div>
-        </div>
+        <!-- Response Area -->
+        <section class="response-section">
+          <div
+            class="response-area"
+            id="responseArea"
+            role="alert"
+            aria-live="assertive"
+          ></div>
+        </section>
+      </main>
     </div>
 
-    <script>
-        const uploadArea = document.getElementById('uploadArea');
-        const fileInput = document.getElementById('fileInput');
-        const progressContainer = document.getElementById('progressContainer');
-        const progressFill = document.getElementById('progressFill');
-        const progressText = document.getElementById('progressText');
-        const fileList = document.getElementById('fileList');
-        const resultContainer = document.getElementById('resultContainer');
-
-        let selectedFiles = [];
-
-        // Click to browse
-        uploadArea.addEventListener('click', () => {
-            fileInput.click();
-        });
-
-        // File input change
-        fileInput.addEventListener('change', (e) => {
-            handleFiles(e.target.files);
-        });
-
-        // Drag and drop
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.classList.add('dragover');
-        });
-
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('dragover');
-        });
-
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
-            handleFiles(e.dataTransfer.files);
-        });
-
-        function handleFiles(files) {
-            selectedFiles = Array.from(files).filter(file => 
-                file.name.toLowerCase().endsWith('.flac')
-            );
-
-            if (selectedFiles.length === 0) {
-                showResult('Please select FLAC files only.', 'error');
-                return;
-            }
-
-            displayFileList();
-            uploadFiles();
-        }
-
-        function displayFileList() {
-            fileList.innerHTML = '';
-            selectedFiles.forEach((file, index) => {
-                const fileItem = document.createElement('div');
-                fileItem.className = 'file-item';
-                fileItem.innerHTML = `
-                    <div class="file-icon">🎵</div>
-                    <div class="file-info">
-                        <div class="file-name">${file.name}</div>
-                        <div class="file-size">${formatFileSize(file.size)}</div>
-                    </div>
-                    <div class="file-status status-pending" id="status-${index}">Pending</div>
-                `;
-                fileList.appendChild(fileItem);
-            });
-        }
-
-        async function uploadFiles() {
-            progressContainer.style.display = 'block';
-            let completed = 0;
-
-            for (let i = 0; i < selectedFiles.length; i++) {
-                const file = selectedFiles[i];
-                const statusElement = document.getElementById(`status-${i}`);
-                
-                try {
-                    statusElement.textContent = 'Uploading';
-                    statusElement.className = 'file-status status-uploading';
-
-                    await uploadSingleFile(file);
-
-                    statusElement.textContent = 'Success';
-                    statusElement.className = 'file-status status-success';
-                } catch (error) {
-                    statusElement.textContent = 'Error';
-                    statusElement.className = 'file-status status-error';
-                    console.error('Upload error:', error);
-                }
-
-                completed++;
-                const progress = (completed / selectedFiles.length) * 100;
-                progressFill.style.width = `${progress}%`;
-                progressText.textContent = `${completed}/${selectedFiles.length} files processed`;
-            }
-
-            if (completed === selectedFiles.length) {
-                showResult(`Successfully processed ${completed} files!`, 'success');
-            } else {
-                showResult(`Processed ${completed}/${selectedFiles.length} files. Some files failed.`, 'error');
-            }
-
-            setTimeout(() => {
-                progressContainer.style.display = 'none';
-                progressFill.style.width = '0%';
-            }, 2000);
-        }
-
-        async function uploadSingleFile(file) {
-            const formData = new FormData();
-            formData.append('file', file);
-
-            const response = await fetch('/admin/upload', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Upload failed');
-            }
-
-            return await response.json();
-        }
-
-        function showResult(message, type) {
-            resultContainer.textContent = message;
-            resultContainer.className = `result-container result-${type}`;
-            resultContainer.style.display = 'block';
-
-            setTimeout(() => {
-                resultContainer.style.display = 'none';
-            }, 5000);
-        }
-
-        function formatFileSize(bytes) {
-            if (bytes === 0) return '0 Bytes';
-            const k = 1024;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-        }
+    <!-- Application Script -->
+    <script type="module" src="static/js/main.js"></script>
+    <script type="module">
+      import { CoverUploader } from '/admin/static/js/cover-uploader.js';
+      document.addEventListener('DOMContentLoaded', () => new CoverUploader());
     </script>
-</body>
+  </body>
 </html>

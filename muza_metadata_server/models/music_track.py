@@ -45,11 +45,7 @@ class MusicTrack(Base):
     album_id = Column(Integer, ForeignKey('albums.id'), nullable=True)
 
     # Timestamp
-    created_at = Column(String(32), nullable=True)
-    
-    # Relationships
-    artist = relationship("Artist", back_populates="tracks")
-    album = relationship("Album", back_populates="tracks")
+    created_at = Column(DateTime(timezone=True), nullable=False, default=func.now())
 
     def to_dict(self):
         """
@@ -72,9 +68,7 @@ class MusicTrack(Base):
             "song_file": self.song_file,
             "comments": self.comments,
             "musicbrainz_track_id": self.musicbrainz_track_id,
-            "artist_id": self.artist_id,
-            "album_id": self.album_id,
-            "created_at": self.created_at,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
     def __repr__(self):

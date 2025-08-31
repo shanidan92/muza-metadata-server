@@ -6,7 +6,7 @@ A modern, high-performance metadata server for the Muza music application, built
 
 - GraphQL API for querying and managing music track metadata
 - CQRS pattern (append-only) API to simplify conflict resolution and concurrency issues
-- Multiple database support (SQLite, PostgreSQL, MySQL) with RDS optimization
+- SQLite database for data storage
 - SSL support for secure communication
 - Post-insert hooks for event-driven integrations and data synchronization
 - S3 integration for audio and cover art storage
@@ -35,7 +35,10 @@ cd muza-metadata-server
 npm install
 ```
 
-3. **Set up environment**
+## Usage
+
+### Development Server
+
 ```bash
 cp .env.example .env
 # Edit .env with your configuration
@@ -63,6 +66,22 @@ npm run dev
 
 ```bash
 export DATABASE_URL="sqlite:///music.db"
+```
+
+#### PostgreSQL RDS (Production)
+
+```bash
+export DATABASE_URL="postgresql://username:password@rds-endpoint:5432/database_name"
+```
+
+## Hooks
+
+The server supports post-insert hooks that are executed after a track is successfully added to the database. This can be useful for:
+
+#### SQLite (Development)
+
+```bash
+export DATABASE_URL="sqlite:///music.db"
 # OR
 export DB_DIALECT=sqlite
 export DB_STORAGE=./data/database.sqlite
@@ -83,39 +102,7 @@ export DB_SSL=true
 ```
 
 #### MySQL RDS (Production)
-
-```bash
-export DATABASE_URL="mysql://username:password@rds-endpoint:3306/database_name"
-# OR
-export DB_DIALECT=mysql
-export DB_HOST=rds-endpoint
-export DB_PORT=3306
-export DB_USERNAME=username
-export DB_PASSWORD=password
-export DB_NAME=database_name
-export DB_SSL=true
-```
-
-## Hooks
-
-```bash
-# Build the container
-docker build -t muza-metadata-server .
-
-# Run the container
-docker run -p 3000:3000 -v $(pwd)/data:/app/data muza-metadata-server
-```
-
-## API Usage
-
-### GraphQL Endpoints
-
-- **GraphQL API**: `http://localhost:3000/graphql`
-- **GraphQL API (ALB)**: `http://localhost:3000/api/metadata/graphql`
-- **GraphQL Playground**: Available in development mode
-- **Health Check**: `http://localhost:3000/health`
-- **Health Check (ALB)**: `http://localhost:3000/api/metadata/health`
-
+  
 ### Admin Interface
 
 - **Upload Interface**: `http://localhost:8080/admin/`
@@ -127,6 +114,8 @@ docker run -p 3000:3000 -v $(pwd)/data:/app/data muza-metadata-server
 The CLI provides powerful tools for managing your metadata database:
 
 ### Main Server CLI
+
+Using Podman:
 
 ```bash
 # Initialize database
@@ -153,6 +142,8 @@ npm run cli server --port 8080 --host 0.0.0.0
 
 ### Uploader CLI
 
+Standard HTTP mode:
+
 ```bash
 # Start uploader server
 npm run uploader:start
@@ -167,7 +158,11 @@ npm run uploader:health
 npm run uploader-cli test-upload -f /path/to/song.flac
 ```
 
-## Configuration
+With SSL enabled:
+
+```bash
+make certs  # Generate self-signed certificates first
+mkdir data # create a directory for percistant data
 
 Configuration is managed through environment variables. Copy `.env.example` to `.env` and customize:
 
