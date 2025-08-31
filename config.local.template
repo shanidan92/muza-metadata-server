@@ -1,0 +1,5 @@
+export DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@$RDS_ENDPOINT:5432/$DB_NAME"
+export DEBUG=false
+export MUZA_SERVER_URL="http://localhost:5000/graphql"
+export PORT="5000"
+export ADMIN_UI_PORT="5002"

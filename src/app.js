@@ -19,7 +19,7 @@ async function startServer() {
   
   // CORS configuration
   app.use(cors({
-    origin: config.cors.origin,
+    origin: [...config.cors.origin, 'http://localhost:8080'],
     credentials: true,
   }));
 
@@ -30,9 +30,14 @@ async function startServer() {
   // Static file serving
   app.use('/static', express.static(path.join(__dirname, '../data')));
 
-  // Health check endpoint
+  // Health check endpoint (legacy)
   app.get('/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    res.json({ 
+      status: 'healthy', 
+      service: 'Muza Metadata Server',
+      version: '0.1.0',
+      timestamp: new Date().toISOString() 
+    });
   });
 
   // Create Apollo Server
@@ -48,7 +53,22 @@ async function startServer() {
   });
 
   await server.start();
+  
+  // Apply GraphQL middleware with new prefix for ALB routing
+  server.applyMiddleware({ app, path: '/api/metadata/graphql' });
+  
+  // Keep legacy endpoint for backward compatibility
   server.applyMiddleware({ app, path: '/graphql' });
+
+  // Health check endpoints with prefix
+  app.get('/api/metadata/health', (req, res) => {
+    res.json({ 
+      status: 'healthy', 
+      service: 'Muza Metadata Server',
+      version: '0.1.0',
+      timestamp: new Date().toISOString() 
+    });
+  });
 
   // Initialize database
   try {

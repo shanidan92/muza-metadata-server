@@ -17,11 +17,53 @@ class Database:
 
     def __init__(self, database_url: str):
         self.database_url = database_url
-        self.engine = create_engine(database_url)
+        # Configure engine with RDS-appropriate settings
+        engine_args = self._get_engine_args(database_url)
+        self.engine = create_engine(database_url, **engine_args)
         self.SessionLocal = sessionmaker(
             autocommit=False, autoflush=False, bind=self.engine
         )
         self.init_db()
+
+    def _get_engine_args(self, database_url: str) -> dict:
+        """Get engine configuration based on database type"""
+        engine_args = {}
+        
+        if database_url.startswith("postgresql://"):
+            # PostgreSQL RDS configuration
+            engine_args.update({
+                "pool_size": 10,
+                "max_overflow": 20,
+                "pool_timeout": 30,
+                "pool_recycle": 1800,  # Recycle connections every 30 minutes
+                "pool_pre_ping": True,  # Verify connections before use
+                "connect_args": {
+                    "sslmode": "require",  # Force SSL for RDS
+                    "connect_timeout": 10
+                }
+            })
+        elif database_url.startswith("mysql://"):
+            # MySQL RDS configuration
+            engine_args.update({
+                "pool_size": 10,
+                "max_overflow": 20,
+                "pool_timeout": 30,
+                "pool_recycle": 1800,
+                "pool_pre_ping": True,
+                "connect_args": {
+                    "ssl": {"ssl_disabled": False},
+                    "connect_timeout": 10
+                }
+            })
+        elif database_url.startswith("sqlite://"):
+            # SQLite configuration (for local development)
+            engine_args.update({
+                "pool_timeout": 20,
+                "pool_recycle": -1,
+                "connect_args": {"check_same_thread": False}
+            })
+        
+        return engine_args
 
     def init_db(self):
         """

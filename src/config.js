@@ -10,6 +10,7 @@ const config = {
 
   // Database configuration
   database: {
+    url: process.env.DATABASE_URL, // New: Support for DATABASE_URL
     dialect: process.env.DB_DIALECT || 'sqlite',
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT) || 5432,
@@ -20,6 +21,7 @@ const config = {
     sync: process.env.DB_SYNC === 'true' || false,
     forceSync: process.env.DB_FORCE_SYNC === 'true' || false,
     logging: process.env.DB_LOGGING === 'true' ? console.log : false,
+    ssl: process.env.DB_SSL === 'true' || false, // New: SSL support
   },
 
   // GraphQL configuration
@@ -58,6 +60,45 @@ const config = {
   logging: {
     level: process.env.LOG_LEVEL || 'info',
     format: process.env.LOG_FORMAT || 'combined',
+  },
+
+  // AWS/S3 configuration
+  aws: {
+    region: process.env.AWS_REGION || 'us-east-1',
+    s3AudioRawBucket: process.env.S3_AUDIO_RAW_BUCKET,
+    s3CoverArtBucket: process.env.S3_COVER_ART_BUCKET,
+    cdnDomainName: process.env.CDN_DOMAIN_NAME,
+    
+      audioUploadDir: process.env.AUDIO_UPLOAD_DIR || './uploads/audio',
+      imageUploadDir: process.env.IMAGE_UPLOAD_DIR || './uploads/images',
+      s3AudioRawBucket: process.env.S3_AUDIO_RAW_BUCKET,
+      s3CoverArtBucket: process.env.S3_COVER_ART_BUCKET,
+      cdnDomainName: process.env.CDN_DOMAIN_NAME,
+      awsRegion: process.env.AWS_REGION || 'us-east-1',
+      secretKey: process.env.SECRET_KEY || 'dev-secret-key',
+      port: parseInt(process.env.PORT) || 8080
+  },
+
+  // Hook configuration
+  hooks: {
+    command: process.env.HOOK_COMMAND,
+  },
+
+  // Uploader configuration
+  uploader: {
+    audioUploadDir: process.env.AUDIO_UPLOAD_DIR || './uploads/audio',
+    imageUploadDir: process.env.IMAGE_UPLOAD_DIR || './uploads/images',
+    secretKey: process.env.SECRET_KEY || 'dev-secret-key',
+    port: parseInt(process.env.UPLOADER_PORT) || 8080,
+  },
+
+  // Cognito/OAuth configuration
+  auth: {
+    cognitoBaseUrl: process.env.COGNITO_BASE_URL,
+    cognitoClientId: process.env.COGNITO_CLIENT_ID,
+    cognitoClientSecret: process.env.COGNITO_CLIENT_SECRET,
+    oauthRedirectUri: process.env.OAUTH_REDIRECT_URI,
+    oauthLogoutRedirectUri: process.env.OAUTH_LOGOUT_REDIRECT_URI,
   },
 
   // Development/Debug flags

@@ -346,7 +346,7 @@ async function httpRequest(url, options = {}) {
     method = 'GET',
     headers = {},
     data = null,
-    timeout = config.muza.timeout,
+    timeout = config.muza?.timeout || 30000,
     retryOptions = {}
   } = options;
   
@@ -355,7 +355,7 @@ async function httpRequest(url, options = {}) {
       method,
       url,
       headers: {
-        'User-Agent': config.musicbrainz.userAgent,
+        'User-Agent': config.musicbrainz?.userAgent || 'Muza-Metadata-Server/1.0',
         ...headers
       },
       data,
@@ -364,6 +364,66 @@ async function httpRequest(url, options = {}) {
     
     return response.data;
   }, retryOptions);
+}
+
+/**
+ * Run post-insert hook command
+ * @param {string} hookCommand - Command to execute
+ * @param {Object} trackData - Track data to pass to hook
+ */
+function runHook(hookCommand, trackData) {
+  if (!hookCommand) {
+    return;
+  }
+
+  try {
+    const { spawn } = require('child_process');
+    
+    console.log(`Running hook command: ${hookCommand}`);
+    
+    // Parse command and arguments
+    const parts = hookCommand.split(' ');
+    const command = parts[0];
+    const args = parts.slice(1);
+    
+    // Spawn the process
+    const child = spawn(command, args, {
+      stdio: 'pipe',
+      env: {
+        ...process.env,
+        TRACK_DATA: JSON.stringify(trackData)
+      }
+    });
+    
+    // Send track data to stdin
+    if (child.stdin) {
+      child.stdin.write(JSON.stringify(trackData));
+      child.stdin.end();
+    }
+    
+    child.stdout?.on('data', (data) => {
+      console.log(`Hook stdout: ${data}`);
+    });
+    
+    child.stderr?.on('data', (data) => {
+      console.error(`Hook stderr: ${data}`);
+    });
+    
+    child.on('close', (code) => {
+      if (code === 0) {
+        console.log('Hook command executed successfully');
+      } else {
+        console.error(`Hook command exited with code ${code}`);
+      }
+    });
+    
+    child.on('error', (error) => {
+      console.error(`Hook command error: ${error.message}`);
+    });
+    
+  } catch (error) {
+    console.error(`Error running hook command: ${error.message}`);
+  }
 }
 
 module.exports = {
@@ -383,4 +443,5 @@ module.exports = {
   delay,
   retry,
   httpRequest,
+  runHook,
 }; 

@@ -4,14 +4,15 @@ A modern, high-performance metadata server for the Muza music application, built
 
 ## Features
 
-- **GraphQL API**: Comprehensive GraphQL API for music metadata operations
-- **Multi-Database Support**: SQLite, PostgreSQL, and MySQL support via Sequelize
-- **Audio Metadata Extraction**: Automatic extraction of metadata from audio files
-- **MusicBrainz Integration**: Integration with MusicBrainz for enhanced metadata
-- **File Management**: Robust file handling and storage management
-- **CLI Tools**: Command-line interface for database management and imports
-- **Container Support**: Docker/Podman ready with optimized containerization
-- **Production Ready**: Built with security, performance, and scalability in mind
+- GraphQL API for querying and managing music track metadata
+- CQRS pattern (append-only) API to simplify conflict resolution and concurrency issues
+- Multiple database support (SQLite, PostgreSQL, MySQL) with RDS optimization
+- SSL support for secure communication
+- Post-insert hooks for event-driven integrations and data synchronization
+- S3 integration for audio and cover art storage
+- CDN support for optimized content delivery
+- Web-based admin interface for file uploads
+- Legacy API compatibility for backward compatibility
 
 ## Quick Start
 
@@ -50,9 +51,52 @@ npm run cli db init
 npm run dev
 ```
 
-The server will start at http://localhost:3000 with GraphQL playground at http://localhost:3000/graphql
+- `PORT`: Server port (default: 5000)
+- `DATABASE_URL`: Database connection URL (see Database Configuration below)
+- `DB_PATH`: SQLite database path (default: music.db) - deprecated, use DATABASE_URL
+- `DEBUG`: Enable debug mode (default: false)
+- `HOOK_COMMAND`: Command to execute after successful track insertion (optional)
 
-### Docker Deployment
+### Database Configuration
+
+#### SQLite (Development)
+
+```bash
+export DATABASE_URL="sqlite:///music.db"
+# OR
+export DB_DIALECT=sqlite
+export DB_STORAGE=./data/database.sqlite
+```
+
+#### PostgreSQL RDS (Production)
+
+```bash
+export DATABASE_URL="postgresql://username:password@rds-endpoint:5432/database_name"
+# OR
+export DB_DIALECT=postgres
+export DB_HOST=rds-endpoint
+export DB_PORT=5432
+export DB_USERNAME=username
+export DB_PASSWORD=password
+export DB_NAME=database_name
+export DB_SSL=true
+```
+
+#### MySQL RDS (Production)
+
+```bash
+export DATABASE_URL="mysql://username:password@rds-endpoint:3306/database_name"
+# OR
+export DB_DIALECT=mysql
+export DB_HOST=rds-endpoint
+export DB_PORT=3306
+export DB_USERNAME=username
+export DB_PASSWORD=password
+export DB_NAME=database_name
+export DB_SSL=true
+```
+
+## Hooks
 
 ```bash
 # Build the container
@@ -67,65 +111,23 @@ docker run -p 3000:3000 -v $(pwd)/data:/app/data muza-metadata-server
 ### GraphQL Endpoints
 
 - **GraphQL API**: `http://localhost:3000/graphql`
+- **GraphQL API (ALB)**: `http://localhost:3000/api/metadata/graphql`
 - **GraphQL Playground**: Available in development mode
 - **Health Check**: `http://localhost:3000/health`
+- **Health Check (ALB)**: `http://localhost:3000/api/metadata/health`
 
-### Example Queries
+### Admin Interface
 
-#### Get all artists
-```graphql
-query {
-  artists(limit: 10) {
-    id
-    name
-    musicbrainzId
-    albums {
-      id
-      title
-      releaseDate
-    }
-  }
-}
-```
-
-#### Search for tracks
-```graphql
-query {
-  searchTracks(query: "rock", limit: 5) {
-    id
-    title
-    artist {
-      name
-    }
-    album {
-      title
-    }
-    duration
-    genres
-  }
-}
-```
-
-#### Create a new artist
-```graphql
-mutation {
-  createArtist(input: {
-    name: "New Artist"
-    type: "Person"
-    area: "United States"
-  }) {
-    id
-    name
-    createdAt
-  }
-}
-```
+- **Upload Interface**: `http://localhost:8080/admin/`
+- **Admin Health Check**: `http://localhost:8080/health`
+  
 
 ## CLI Usage
 
 The CLI provides powerful tools for managing your metadata database:
 
-### Database Management
+### Main Server CLI
+
 ```bash
 # Initialize database
 npm run cli db init
@@ -138,24 +140,31 @@ npm run cli db seed
 
 # Show statistics
 npm run cli stats
-```
 
-### Import Audio Files
-```bash
 # Import single file
-npm run cli import file /path/to/song.mp3
+npm run cli import file /path/to/song.flac
 
 # Import entire directory
 npm run cli import directory /path/to/music --recursive
 
-# Import with custom extensions
-npm run cli import directory /path/to/music --extensions mp3,flac,m4a
-```
-
-### Start Server
-```bash
 # Start server with custom port
 npm run cli server --port 8080 --host 0.0.0.0
+```
+
+### Uploader CLI
+
+```bash
+# Start uploader server
+npm run uploader:start
+
+# Show uploader configuration
+npm run uploader:config
+
+# Check uploader health
+npm run uploader:health
+
+# Test file upload
+npm run uploader-cli test-upload -f /path/to/song.flac
 ```
 
 ## Configuration
@@ -164,25 +173,17 @@ Configuration is managed through environment variables. Copy `.env.example` to `
 
 ### Database Configuration
 ```env
-# Use SQLite (default)
-DB_DIALECT=sqlite
-DB_STORAGE=./data/database.sqlite
+# Use DATABASE_URL (recommended)
+DATABASE_URL=postgresql://user:pass@host:5432/dbname
 
-# Use PostgreSQL
+# OR use individual settings
 DB_DIALECT=postgres
 DB_HOST=localhost
 DB_PORT=5432
 DB_USERNAME=user
 DB_PASSWORD=password
 DB_NAME=muza_metadata
-
-# Use MySQL
-DB_DIALECT=mysql
-DB_HOST=localhost
-DB_PORT=3306
-DB_USERNAME=user
-DB_PASSWORD=password
-DB_NAME=muza_metadata
+DB_SSL=true
 ```
 
 ### Server Configuration
@@ -191,6 +192,36 @@ NODE_ENV=production
 HOST=0.0.0.0
 PORT=3000
 CORS_ORIGIN=http://localhost:3000,http://localhost:3001
+```
+
+### AWS/S3 Configuration
+```env
+AWS_REGION=us-east-1
+S3_AUDIO_RAW_BUCKET=my-audio-bucket
+S3_COVER_ART_BUCKET=my-images-bucket
+CDN_DOMAIN_NAME=cdn.example.com
+```
+
+### Uploader Configuration
+```env
+AUDIO_UPLOAD_DIR=./uploads/audio
+IMAGE_UPLOAD_DIR=./uploads/images
+UPLOADER_PORT=8080
+SECRET_KEY=your-secret-key
+```
+
+### Authentication (Optional)
+```env
+COGNITO_BASE_URL=https://your-domain.auth.region.amazoncognito.com
+COGNITO_CLIENT_ID=your-client-id
+COGNITO_CLIENT_SECRET=your-client-secret
+OAUTH_REDIRECT_URI=http://localhost:8080/admin/oauth2/callback
+OAUTH_LOGOUT_REDIRECT_URI=http://localhost:8080/admin/signin
+```
+
+### Hooks Configuration
+```env
+HOOK_COMMAND=/path/to/your/hook/script.sh
 ```
 
 ## Data Models
@@ -215,7 +246,10 @@ CORS_ORIGIN=http://localhost:3000,http://localhost:3001
 
 ## Architecture
 
-### Core Components
+- `PORT`: Server port (default: 5000)
+- `DB_PATH`: Database path (default: /data/music.db)
+- `WORKERS`: Number of Gunicorn workers (default: 4)
+- `HOOK_COMMAND`: Command to execute after successful track insertion (optional)
 
 - **Express.js**: Web framework and HTTP server
 - **Apollo Server**: GraphQL API server
@@ -243,10 +277,12 @@ src/
 
 ### Scripts
 ```bash
-npm start           # Start production server
-npm run dev         # Start development server with auto-reload
-npm run cli         # Run CLI commands
-npm test            # Run test suite
+npm start                    # Start production server
+npm run dev                  # Start development server with auto-reload
+npm run cli                  # Run CLI commands
+npm run uploader             # Start uploader server
+npm run uploader:cli         # Run uploader CLI commands
+npm test                     # Run test suite
 ```
 
 ### Database Migrations

@@ -2,501 +2,569 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs-extra');
-const musicMetadata = require('music-metadata');
+const { v4: uuidv4 } = require('uuid');
+const AWS = require('aws-sdk');
+const session = require('express-session');
+const crypto = require('crypto');
 const axios = require('axios');
-const cors = require('cors');
-const helmet = require('helmet');
 
-class NodeUploader {
-    constructor(config = {}) {
-        this.config = {
-            uploadDir: config.uploadDir || 'downloads',
-            muzaServerUrl: config.muzaServerUrl || 'http://localhost:5000/graphql',
-            musicbrainzAppName: config.musicbrainzAppName || 'MuzaUtils',
-            musicbrainzAppVersion: config.musicbrainzAppVersion || '1.0',
-            musicbrainzContact: config.musicbrainzContact || 'admin@example.com',
-            port: config.port || 5002,
-            debug: config.debug || false,
-            maxFileSize: 100 * 1024 * 1024 // 100MB
-        };
+const config = require('./config');
+const { extractMetadata } = require('./utils');
+const MusicBrainzClient = require('./musicbrainz-client');
 
-        this.app = express();
-        this.setupMiddleware();
-        this.setupRoutes();
-        this.ensureUploadDir();
+class FileHandler {
+  constructor(audioUploadDir, imageUploadDir, options = {}) {
+    this.audioUploadDir = audioUploadDir;
+    this.imageUploadDir = imageUploadDir;
+    this.s3BucketRaw = options.s3BucketRaw;
+    this.s3BucketImages = options.s3BucketImages;
+    this.cdnDomain = options.cdnDomain?.replace(/\/$/, '');
+    this.awsRegion = options.awsRegion;
+
+    if (this.s3BucketRaw || this.s3BucketImages) {
+      this.s3 = new AWS.S3({ region: this.awsRegion });
     }
 
-    setupMiddleware() {
-        // Security middleware with secure CSP (no unsafe-inline)
-        this.app.use(helmet({
-            contentSecurityPolicy: {
-                directives: {
-                    defaultSrc: ["'self'"],
-                    scriptSrc: ["'self'"],
-                    styleSrc: ["'self'"],
-                    imgSrc: ["'self'", "data:", "https:"],
-                    connectSrc: ["'self'"],
-                    fontSrc: ["'self'"],
-                    objectSrc: ["'none'"],
-                    mediaSrc: ["'self'"],
-                    frameSrc: ["'none'"]
-                }
-            }
-        }));
-        this.app.use(cors());
-        
-        // Body parsing
-        this.app.use(express.json({ limit: '100mb' }));
-        this.app.use(express.urlencoded({ extended: true, limit: '100mb' }));
-        
-        // Static file serving
-        this.app.use('/files', express.static(this.config.uploadDir));
-        this.app.use('/js', express.static(path.join(__dirname, '../utils/templates')));
-        
-        // Logging middleware
-        this.app.use((req, res, next) => {
-            console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-            next();
-        });
+    this.allowedExtensions = ['.flac'];
+    this.imageExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
+
+    // Ensure directories exist
+    fs.ensureDirSync(audioUploadDir);
+    fs.ensureDirSync(imageUploadDir);
+  }
+
+  async saveUploadedFile(file, originalFilename) {
+    if (!this.isAllowedFile(originalFilename)) {
+      throw new Error(`File type not allowed: ${originalFilename}`);
     }
 
-    setupRoutes() {
-        // Health check
-        this.app.get('/health', (req, res) => {
-            res.json({ status: 'healthy', service: 'Muza Utils API' });
-        });
+    const fileExt = path.extname(originalFilename).toLowerCase();
+    const uniqueFilename = `${uuidv4()}${fileExt}`;
 
-        // Serve upload interface
-        this.app.get('/', (req, res) => {
-            res.sendFile(path.join(__dirname, '../utils/templates/index.html'));
-        });
+    // Always save locally for metadata extraction
+    const filePath = path.join(this.audioUploadDir, uniqueFilename);
+    await fs.writeFile(filePath, file.buffer);
+    const relativePath = `audio/${uniqueFilename}`;
 
-        // Serve test interface
-        this.app.get('/test', (req, res) => {
-            res.sendFile(path.join(__dirname, '../utils/templates/test.html'));
-        });
-
-        // File upload endpoint
-        this.app.post('/upload', this.handleUpload.bind(this));
-
-        // Serve uploaded files
-        this.app.get('/files/:filename', this.serveFile.bind(this));
-
-        // Error handling
-        this.app.use((err, req, res, next) => {
-            console.error('Error:', err);
-            if (err instanceof multer.MulterError) {
-                if (err.code === 'LIMIT_FILE_SIZE') {
-                    return res.status(413).json({ error: 'File too large' });
-                }
-            }
-            res.status(500).json({ error: 'Internal server error' });
-        });
+    // Optionally upload to S3
+    if (this.s3 && this.s3BucketRaw) {
+      const key = `audio/raw/${uniqueFilename}`;
+      await this.s3.upload({
+        Bucket: this.s3BucketRaw,
+        Key: key,
+        Body: file.buffer,
+        ContentType: 'audio/flac'
+      }).promise();
+      console.log(`Uploaded audio to s3://${this.s3BucketRaw}/${key}`);
     }
 
-    async handleUpload(req, res) {
-        try {
-            // Configure multer for file upload
-            const upload = multer({
-                dest: this.config.uploadDir,
-                limits: {
-                    fileSize: this.config.maxFileSize
-                },
-                fileFilter: (req, file, cb) => {
-                    if (file.mimetype === 'audio/flac' || file.originalname.toLowerCase().endsWith('.flac')) {
-                        cb(null, true);
-                    } else {
-                        cb(new Error('Only FLAC files are allowed'));
-                    }
-                }
-            }).single('file');
+    console.log(`Saved uploaded file: ${filePath}`);
+    return { filePath, relativePath };
+  }
 
-            upload(req, res, async (err) => {
-                if (err) {
-                    console.error('Upload error:', err);
-                    return res.status(400).json({ error: err.message });
-                }
+  async downloadAlbumCover(coverUrl, albumTitle) {
+    try {
+      const response = await axios.get(coverUrl, {
+        responseType: 'arraybuffer',
+        timeout: 30000
+      });
 
-                if (!req.file) {
-                    return res.status(400).json({ error: 'No file provided' });
-                }
+      // Determine file extension from content type
+      const contentType = response.headers['content-type']?.toLowerCase() || '';
+      let ext = '.jpg';
+      if (contentType.includes('png')) ext = '.png';
+      else if (contentType.includes('webp')) ext = '.webp';
 
-                try {
-                    // Process the uploaded file
-                    const result = await this.processFile(req.file, req);
-                    res.json(result);
-                } catch (error) {
-                    console.error('Processing error:', error);
-                    res.status(500).json({ error: error.message });
-                }
-            });
-        } catch (error) {
-            console.error('Upload handler error:', error);
-            res.status(500).json({ error: 'Internal server error' });
-        }
-    }
+      const safeAlbumTitle = albumTitle.replace(/[^a-zA-Z0-9]/g, '_') || 'unknown_album';
+      const filename = `cover_${safeAlbumTitle}_${uuidv4()}${ext}`;
 
-    async processFile(file, req) {
-        console.log(`Processing file: ${file.originalname}`);
+      // Upload to S3 if configured, else save locally
+      if (this.s3 && this.s3BucketImages) {
+        const key = `cover-art/${filename}`;
+        await this.s3.upload({
+          Bucket: this.s3BucketImages,
+          Key: key,
+          Body: response.data,
+          ContentType: `image/${ext.slice(1)}`
+        }).promise();
+        console.log(`Uploaded cover art to s3://${this.s3BucketImages}/${key}`);
+        return key;
+      } else {
+        const filePath = path.join(this.imageUploadDir, filename);
+        await fs.writeFile(filePath, response.data);
 
-        // Extract metadata from FLAC
-        const flacMetadata = await this.extractMetadata(file.path);
-        if (!flacMetadata) {
-            throw new Error('Could not extract metadata from FLAC file');
-        }
-
-        // Enhance with MusicBrainz data
-        const enhancedMetadata = await this.enhanceWithMusicBrainz(flacMetadata);
-
-        // Set file path in metadata
-        const relativePath = path.relative(this.config.uploadDir, file.path);
-        enhancedMetadata.song_file = this.getFileUrl(relativePath, req);
-
-        // Find or create artist
-        let artistId = null;
-        if (enhancedMetadata.artist_main) {
-            const artist = await this.findOrCreateArtist(enhancedMetadata);
-            if (artist) {
-                artistId = artist.id;
-            }
-        }
-
-        // Find or create album
-        let albumId = null;
-        let albumExisted = false;
-        if (enhancedMetadata.album_title) {
-            const existingAlbum = await this.findExistingAlbum(enhancedMetadata, artistId);
-            if (existingAlbum) {
-                albumId = existingAlbum.id;
-                albumExisted = true;
-                console.log(`Using existing album: ${existingAlbum.title} (ID: ${albumId})`);
-            } else {
-                const album = await this.createAlbum(enhancedMetadata, artistId);
-                if (album) {
-                    albumId = album.id;
-                    console.log(`Created new album: ${album.title} (ID: ${albumId})`);
-                }
-            }
-        }
-
-        // Remove album cover from track metadata if album already existed
-        if (albumExisted && enhancedMetadata.album_cover) {
-            delete enhancedMetadata.album_cover;
-        }
-
-        // Add foreign key references
-        if (artistId) {
-            enhancedMetadata.artist_id = artistId;
-        }
-        if (albumId) {
-            enhancedMetadata.album_id = albumId;
-        }
-
-        // Remove fields that are now in Artist/Album tables
-        const fieldsToRemove = [
-            'album_title', 'album_cover', 'band_name', 'artist_photo',
-            'label', 'label_logo', 'year_released'
-        ];
-        fieldsToRemove.forEach(field => {
-            delete enhancedMetadata[field];
-        });
-
-        // Insert track into Muza database
-        const trackResult = await this.createTrack(enhancedMetadata);
-        if (!trackResult) {
-            throw new Error('Failed to insert track into database');
-        }
-
-        return {
-            success: true,
-            message: 'File processed successfully',
-            track: trackResult.track,
-            metadata: enhancedMetadata
-        };
-    }
-
-    async extractMetadata(filePath) {
-        try {
-            const metadata = await musicMetadata.parseFile(filePath);
-            
-            // Extract cover art
-            const coverPath = await this.extractCoverArt(metadata);
-            
-            const extractedMetadata = {
-                duration_seconds: Math.floor(metadata.format.duration || 0),
-                song_title: metadata.common.title,
-                artist_main: metadata.common.artist,
-                album_title: metadata.common.album,
-                song_order: metadata.common.track?.no,                
-                disc_number: metadata.common.disk.no,
-                total_discs: metadata.common.disk.of,
-                composer: metadata.common.composer?.[0],
-                band_name: metadata.common.albumartist,
-                label: metadata.common.label?.[0],
-                year_recorded: metadata.common.date ? parseInt(metadata.common.date.split('-')[0]) : null,
-                year_released: metadata.common.originaldate ? parseInt(metadata.common.originaldate.split('-')[0]) : metadata.common.year,
-                  genre: metadata.common.genre?.join(', '),
-                duration: Math.round(metadata.format.duration),
-                bitrate: metadata.format.bitrate,
-                sample_rate: metadata.format.sampleRate,
-                channels: metadata.format.numberOfChannels,
-                total_tracks: metadata.common.track.of,
-                instrument: metadata.common.instrument?.[0],
-                comments: metadata.common.comment?.[0],
-                other_artist_playing: metadata.common.performer?.[0],
-                musicbrainz_track_id: metadata.common.musicbrainz_recordingid,
-                musicbrainz_album_id: metadata.common.musicbrainz_albumid,
-                musicbrainz_artist_id: metadata.common.musicbrainz_artistid,
-                album_cover: coverPath,
-                lyrics: metadata.common.lyrics?.[0]?.text
-
-            };
-            
-            // Clean up null/undefined values
-            return Object.fromEntries(
-                Object.entries(extractedMetadata).filter(([_, v]) => v != null)
-            );
-        } catch (error) {
-            console.error('Error extracting metadata:', error);
-            return null;
-        }
-    }
-    
-    async extractCoverArt(metadata) {
-        try {
-            const pictures = metadata.common?.picture;
-            if (!pictures || pictures.length === 0) {
-                return null;
-            }
-
-            const picture = pictures[0];
-            const artist = metadata.common.artist || 'unknown';
-            const album = metadata.common.album || 'unknown';
-            
-            const fileName = `cover_${artist}_${album}`.replace(/\s+/g, '_').replace(/[^\w-]/g, '') + '.jpg';
-            const filePath = path.join(this.config.uploadDir, fileName);
-            
-            await fs.writeFile(filePath, picture.data);
-            console.log(`Downloaded album cover: ${fileName}`);
-            
-            return fileName;
-        } catch (error) {
-            console.error(`Error extracting cover art: ${error.message}`);
-            return null;
-        }
-    }
-
-    async enhanceWithMusicBrainz(flacMetadata) {
-        const enhanced = { ...flacMetadata };
-        
-        console.log(`Enhancing metadata with MusicBrainz for: ${flacMetadata.song_title || 'unknown'} by ${flacMetadata.artist_main || 'unknown'}`);
-
-        try {
-            // Try to lookup by MusicBrainz ID first
-            let mbData = null;
-            if (flacMetadata.musicbrainz_track_id) {
-                mbData = await this.lookupTrackById(flacMetadata.musicbrainz_track_id);
-            }
-
-            // If no ID or lookup failed, try search
-            if (!mbData && flacMetadata.song_title && flacMetadata.artist_main) {
-                mbData = await this.searchTrack(
-                    flacMetadata.song_title,
-                    flacMetadata.artist_main,
-                    flacMetadata.album_title
-                );
-            }
-
-            console.log(`MusicBrainz data found: ${mbData !== null}`);
-            if (mbData) {
-                console.log(`MusicBrainz data:`, mbData);
-            }
-
-            // Merge MusicBrainz data (prefer FLAC data when available)
-            if (mbData) {
-                Object.keys(mbData).forEach(key => {
-                    if (!enhanced[key] || !enhanced[key]) {
-                        enhanced[key] = mbData[key];
-                    }
-                });
-            }
-
-            // Download album cover if we have album ID
-            const albumId = enhanced.musicbrainz_album_id;
-            if (albumId && !enhanced.album_cover) {
-                const coverUrl = await this.getAlbumCoverUrl(albumId);
-                console.log(`Cover URL found: ${coverUrl}`);
-                
-                if (coverUrl) {
-                    const coverPath = await this.downloadAlbumCover(
-                        coverUrl,
-                        enhanced.album_title || 'unknown'
-                    );
-                    console.log(`Downloaded cover path: ${coverPath}`);
-                    if (coverPath) {
-                        enhanced.album_cover = this.getFileUrl(coverPath);
-                        console.log(`Album cover URL: ${enhanced.album_cover}`);
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('Error enhancing metadata with MusicBrainz:', error);
-        }
-
-        return enhanced;
-    }
-
-    async lookupTrackById(trackId) {
-        try {
-            const response = await axios.get(`https://musicbrainz.org/ws/2/recording/${trackId}`, {
-                params: {
-                    fmt: 'json',
-                    inc: 'artists+releases+tags'
-                },
-                headers: {
-                    'User-Agent': `${this.config.musicbrainzAppName}/${this.config.musicbrainzAppVersion} (${this.config.musicbrainzContact})`
-                }
-            });
-
-            if (response.data) {
-                return this.parseMusicBrainzTrack(response.data);
-            }
-        } catch (error) {
-            console.error('Error looking up track by ID:', error);
-        }
-        return null;
-    }
-
-    async searchTrack(title, artist, album) {
-        try {
-            const query = `recording:"${title}" AND artist:"${artist}"${album ? ` AND release:"${album}"` : ''}`;
-            const response = await axios.get('https://musicbrainz.org/ws/2/recording/', {
-                params: {
-                    query: query,
-                    fmt: 'json',
-                    limit: 1
-                },
-                headers: {
-                    'User-Agent': `${this.config.musicbrainzAppName}/${this.config.musicbrainzAppVersion} (${this.config.musicbrainzContact})`
-                }
-            });
-
-            if (response.data && response.data.recordings && response.data.recordings.length > 0) {
-                return this.parseMusicBrainzTrack(response.data.recordings[0]);
-            }
-        } catch (error) {
-            console.error('Error searching track:', error);
-        }
-        return null;
-    }
-
-    parseMusicBrainzTrack(trackData) {
-        return {
-            song_title: trackData.title,
-            artist_main: trackData['artist-credit']?.[0]?.name,
-            album_title: trackData.releases?.[0]?.title,
-            year_released: trackData.releases?.[0]?.date?.substring(0, 4),
-            genre: trackData.tags?.[0]?.name,
-            musicbrainz_track_id: trackData.id,
-            musicbrainz_album_id: trackData.releases?.[0]?.id,
-            musicbrainz_artist_id: trackData['artist-credit']?.[0]?.artist?.id
-        };
-    }
-
-    async getAlbumCoverUrl(albumId) {
-        try {
-            const response = await axios.get(`https://coverartarchive.org/release/${albumId}`);
-            if (response.data && response.data.images && response.data.images.length > 0) {
-                // Find front cover
-                const frontCover = response.data.images.find(img => img.front === true);
-                if (frontCover) {
-                    return frontCover.image;
-                }
-                // Fallback to first image
-                return response.data.images[0].image;
-            }
-        } catch (error) {
-            console.error('Error getting album cover URL:', error);
-        }
-        return null;
-    }
-
-    async downloadAlbumCover(coverUrl, albumTitle) {
-        try {
-            const response = await axios.get(coverUrl, { responseType: 'stream' });
-            const filename = `cover_${albumTitle.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`;
-            const filePath = path.join(this.config.uploadDir, filename);
-            
-            const writer = fs.createWriteStream(filePath);
-            response.data.pipe(writer);
-            
-            return new Promise((resolve, reject) => {
-                writer.on('finish', () => resolve(filename));
-                writer.on('error', reject);
-            });
-        } catch (error) {
-            console.error('Error downloading album cover:', error);
-            return null;
-        }
-    }
-
-    async findOrCreateArtist(metadata) {
-        // This would integrate with your Muza GraphQL server
-        // For now, return a mock artist
-        return { id: 'mock-artist-id' };
-    }
-
-    async findExistingAlbum(metadata, artistId) {
-        // This would integrate with your Muza GraphQL server
-        // For now, return null (no existing album)
-        return null;
-    }
-
-    async createAlbum(metadata, artistId) {
-        // This would integrate with your Muza GraphQL server
-        // For now, return a mock album
-        return { id: 'mock-album-id', title: metadata.album_title };
-    }
-
-    async createTrack(metadata) {
-        // This would integrate with your Muza GraphQL server
-        // For now, return a mock track
-        return { track: { id: 'mock-track-id', title: metadata.song_title } };
-    }
-
-    getFileUrl(relativePath, req) {
-        const baseUrl = req?.url ? `${req.protocol}://${req.get('host')}` : `http://localhost:${this.config.port}`;
-        return `${baseUrl}/files/${relativePath}`;
-    }
-
-    serveFile(req, res) {
-        const filename = req.params.filename;
-        const filePath = path.join(this.config.uploadDir, filename);
-        
-        if (fs.existsSync(filePath)) {
-            res.sendFile(filePath);
+        if (await fs.pathExists(filePath) && (await fs.stat(filePath)).size > 1024) {
+          console.log(`Downloaded album cover: ${filename}`);
+          return `images/${filename}`;
         } else {
-            console.error(`File not found: ${filename} in directory: ${this.config.uploadDir}`);
-            res.status(404).json({ error: 'File not found' });
+          console.error('Downloaded file is too small or doesn\'t exist');
+          if (await fs.pathExists(filePath)) {
+            await fs.remove(filePath);
+          }
+          return null;
         }
+      }
+    } catch (error) {
+      console.error(`Error downloading album cover: ${error.message}`);
+      return null;
     }
+  }
 
-    async ensureUploadDir() {
-        try {
-            await fs.ensureDir(this.config.uploadDir);
-            console.log(`Upload directory ensured: ${this.config.uploadDir}`);
-        } catch (error) {
-            console.error('Error ensuring upload directory:', error);
-        }
-    }
+  isAllowedFile(filename) {
+    if (!filename) return false;
+    const ext = path.extname(filename).toLowerCase();
+    return this.allowedExtensions.includes(ext);
+  }
 
-    start() {
-        this.app.listen(this.config.port, () => {
-            console.log(`Muza Utils API started on port ${this.config.port}`);
-            console.log(`Upload directory: ${this.config.uploadDir}`);
-            console.log(`Muza server URL: ${this.config.muzaServerUrl}`);
-        });
+  getFileUrl(relativePath, baseUrl) {
+    if (this.cdnDomain && (
+      relativePath.startsWith('audio/hls/') ||
+      relativePath.startsWith('cover-art/') ||
+      relativePath.startsWith('images/')
+    )) {
+      if (relativePath.startsWith('audio/hls/') || relativePath.startsWith('cover-art/')) {
+        return `https://${this.cdnDomain}/${relativePath}`;
+      }
+      if (relativePath.startsWith('images/')) {
+        return `https://${this.cdnDomain}/cover-art/${relativePath.split('/').slice(1).join('/')}`;
+      }
     }
+    return `${baseUrl.replace(/\/$/, '')}/files/${relativePath}`;
+  }
 }
 
-module.exports = NodeUploader;
+class MuzaClient {
+  constructor() {
+    const { Artist, Album, MusicTrack } = require('./db/models');
+    this.Artist = Artist;
+    this.Album = Album;
+    this.MusicTrack = MusicTrack;
+  }
+
+  async init() {
+    // No initialization needed for models
+  }
+
+  async createTrack(trackData) {
+    try {
+      const track = await this.MusicTrack.create({
+        uuid: trackData.uuid,
+        title: trackData.songTitle,
+        duration: trackData.durationSeconds,
+        trackNumber: trackData.songOrder,
+        yearRecorded: trackData.yearRecorded,
+        filePath: trackData.songFile,
+        artistId: trackData.artistId,
+        albumId: trackData.albumId
+      });
+      return { ok: true, track };
+    } catch (error) {
+      console.error('Error creating track:', error.message);
+      return { ok: false, track: null };
+    }
+  }
+
+  async findOrCreateArtist(metadata) {
+    if (!metadata.artistMain) return null;
+
+    try {
+      // Try to find existing artist
+      let artist = await this.Artist.findByName(metadata.artistMain);
+
+      if (artist) {
+        return artist;
+      }
+
+      // Create new artist
+      artist = await this.Artist.create({
+        name: metadata.artistMain,
+        bandName: metadata.bandName,
+        image: metadata.artistPhoto
+      });
+
+      return artist;
+    } catch (error) {
+      console.error('Error finding/creating artist:', error.message);
+      return null;
+    }
+  }
+
+  async findExistingAlbum(metadata, artistId) {
+    if (!metadata.albumTitle) return null;
+
+    try {
+      const album = await this.Album.findByTitleAndArtist(metadata.albumTitle, artistId);
+      return album;
+    } catch (error) {
+      console.error('Error finding existing album:', error.message);
+      return null;
+    }
+  }
+
+  async createAlbum(metadata, artistId) {
+    if (!metadata.albumTitle) return null;
+
+    try {
+      const album = await this.Album.create({
+        title: metadata.albumTitle,
+        artistId: artistId,
+        coverArt: metadata.albumCover,
+        releaseDate: metadata.yearReleased ,
+        originalReleaseDate: metadata.yearRecorded,
+        label: metadata.label
+      });
+
+      return album;
+    } catch (error) {
+      console.error('Error creating album:', error.message);
+      return null;
+    }
+  }
+}
+
+async function createUploaderApp(uploaderConfig = null , options) {
+  const app = express();
+  const { testConnection, query } = require('./db/connection');
+
+  // Test database connection
+  console.log('Testing database connection...');
+  await testConnection();
+  console.log('Database connection successful.');
+
+   // Configure session
+  app.use(session({
+    secret: uploaderConfig.secretKey,
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: false } // Set to true in production with HTTPS
+  }));
+
+  app.use(require('cors')({
+    origin: ['http://localhost:3000', 'http://localhost:8080'],
+    credentials: true
+  }));
+  app.use(express.json({ limit: '100mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '100mb' }));
+  app.use(express.static(path.join(__dirname, '../utils/static'), { prefix: '/admin/static' }));
+
+  // Configure multer for file uploads
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 100 * 1024 * 1024 } // 100MB
+  });
+
+  // Initialize components
+  const fileHandler = new FileHandler(
+    uploaderConfig.audioUploadDir,
+    uploaderConfig.imageUploadDir,
+    {
+      s3BucketRaw: uploaderConfig.s3AudioRawBucket,
+      s3BucketImages: uploaderConfig.s3CoverArtBucket,
+      cdnDomain: uploaderConfig.cdnDomainName,
+      awsRegion: uploaderConfig.awsRegion
+    }
+  );
+
+
+  const muzaClient = new MuzaClient();
+  await muzaClient.init();
+  
+  const mbClient = new MusicBrainzClient();
+
+  // Middleware to require login
+  function requireLogin(req, res, next) {
+    if (!req.session.user) {
+      return res.redirect('/admin/signin');
+    }
+    next();
+  }
+
+  // Routes
+  app.get('/', (req, res) => res.redirect('/admin/'));
+  app.get('/admin/', requireLogin, (req, res) => {
+    res.sendFile(path.join(__dirname, '../utils/templates/index.html'));
+  });
+  app.get('/upload', requireLogin, (req, res) => {
+    res.sendFile(path.join(__dirname, '../utils/templates/index.html'));
+  });
+
+  app.get('/health', (req, res) => {
+    res.json({ status: 'healthy', service: 'Muza Utils API' });
+  });
+
+  app.get('/admin/signin', (req, res) => {
+    res.sendFile(path.join(__dirname, '../utils/templates/login.html'));
+  });
+
+  // Presigned URL endpoints for S3 uploads
+  app.post('/admin/presign/audio', requireLogin, async (req, res) => {
+    const { filename = 'upload.flac', content_type = 'audio/flac' } = req.body;
+    const fileExt = path.extname(filename) || '.flac';
+    const key = `audio/raw/${crypto.randomBytes(16).toString('hex')}${fileExt}`;
+
+    try {
+      if (!fileHandler.s3 || !uploaderConfig.s3AudioRawBucket) {
+        return res.status(500).json({ error: 'S3 not configured' });
+      }
+
+      const url = fileHandler.s3.getSignedUrl('putObject', {
+        Bucket: uploaderConfig.s3AudioRawBucket,
+        Key: key,
+        ContentType: content_type,
+        Expires: 3600
+      });
+
+      res.json({
+        upload_url: url,
+        key,
+        bucket: uploaderConfig.s3AudioRawBucket,
+        content_type
+      });
+    } catch (error) {
+      console.error('Error generating presigned URL:', error);
+      res.status(500).json({ error: 'Failed to generate upload URL' });
+    }
+  });
+
+  app.post('/admin/presign/cover', requireLogin, async (req, res) => {
+    const { filename = 'cover.jpg', content_type = 'image/jpeg' } = req.body;
+    const fileExt = path.extname(filename) || '.jpg';
+    const key = `cover-art/${crypto.randomBytes(16).toString('hex')}${fileExt}`;
+
+    try {
+      if (!fileHandler.s3 || !uploaderConfig.s3CoverArtBucket) {
+        return res.status(500).json({ error: 'S3 not configured' });
+      }
+
+      const url = fileHandler.s3.getSignedUrl('putObject', {
+        Bucket: uploaderConfig.s3CoverArtBucket,
+        Key: key,
+        ContentType: content_type,
+        Expires: 3600
+      });
+
+      const cdnUrl = uploaderConfig.cdnDomainName ?
+        `https://${uploaderConfig.cdnDomainName}/${key}` : null;
+
+      res.json({
+        upload_url: url,
+        key,
+        bucket: uploaderConfig.s3CoverArtBucket,
+        content_type,
+        cdn_url: cdnUrl
+      });
+    } catch (error) {
+      console.error('Error generating presigned URL for cover:', error);
+      res.status(500).json({ error: 'Failed to generate upload URL' });
+    }
+  });
+
+  // File upload endpoint
+  app.post('/admin/upload', requireLogin, upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file provided' });
+      }
+
+      // Save uploaded file
+      const { filePath, relativePath } = await fileHandler.saveUploadedFile(req.file, req.file.originalname);
+
+      // Extract metadata from FLAC
+      const flacMetadata = await extractMetadata(filePath);
+      if (!flacMetadata) {
+        return res.status(400).json({ error: 'Could not extract metadata from FLAC file' });
+      }
+
+      // Enhance with MusicBrainz data
+      const enhancedMetadata = await enhanceWithMusicBrainz(flacMetadata, mbClient, fileHandler, req);
+
+      // Set playback URL
+      const relBase = path.basename(relativePath, path.extname(relativePath));
+      const expectedHlsRelative = `audio/hls/${relBase}/${relBase}.m3u8`;
+      enhancedMetadata.songFile = fileHandler.getFileUrl(expectedHlsRelative, `${req.protocol}://${req.get('host')}/`);
+
+      // Find or create artist
+      let artistId = null;
+      if (flacMetadata.artist) {
+        const artist = await muzaClient.findOrCreateArtist({ artistMain: flacMetadata.artist });
+        if (artist) {
+          artistId = artist.id;
+        }
+      }
+
+      // Find or create album
+      let albumId = null;
+      if (flacMetadata.album) {
+        const existingAlbum = await muzaClient.findExistingAlbum({ albumTitle: flacMetadata.album }, artistId);
+        if (existingAlbum) {
+          albumId = existingAlbum.id;
+          console.log(`Using existing album: ${existingAlbum.title} (ID: ${albumId})`);
+        } else {
+          const album = await muzaClient.createAlbum({
+            albumTitle: flacMetadata.album,
+            yearRecorded: flacMetadata.year,
+            yearReleased: flacMetadata.year
+          }, artistId);
+          if (album) {
+            albumId = album.id;
+            console.log(`Created new album: ${album.title} (ID: ${albumId})`);
+          }
+        }
+      }
+
+      // Prepare track data
+      const trackData = {
+        uuid: uuidv4(),
+        songTitle: flacMetadata.title,
+        artistMain: flacMetadata.artist,
+        durationSeconds: flacMetadata.duration,
+        songOrder: flacMetadata.trackNumber,
+        yearRecorded: flacMetadata.year,
+        songFile: flacMetadata.songFile,
+        artistId,
+        albumId
+      };
+
+      // Insert track into database
+      const result = await muzaClient.createTrack(trackData);
+      if (!result || !result.ok) {
+        return res.status(500).json({ error: 'Failed to insert track into database' });
+      }
+
+      res.json({
+        success: true,
+        message: 'File processed successfully',
+        track: result.track,
+        metadata: trackData
+      });
+
+    } catch (error) {
+      console.error('Error processing upload:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+
+  // File serving endpoint
+  app.get('/files/:type/:filename', (req, res) => {
+    try {
+      const { type, filename } = req.params;
+      let filePath;
+
+      if (type === 'audio') {
+        filePath = path.join(uploaderConfig.audioUploadDir, filename);
+      } else if (type === 'images') {
+        filePath = path.join(uploaderConfig.imageUploadDir, filename);
+      } else {
+        return res.status(400).json({ error: 'Invalid file type' });
+      }
+
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: 'File not found' });
+      }
+
+      res.sendFile(path.resolve(filePath));
+    } catch (error) {
+      console.error('Error serving file:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  app.get('/admin/files/:type/:filename', (req, res) => {
+    // Redirect to main files endpoint
+    res.redirect(`/files/${req.params.type}/${req.params.filename}`);
+  });
+
+  // Simple login for development (replace with proper OAuth in production)
+  app.post('/admin/login', (req, res) => {
+    // For development only - implement proper authentication
+    req.session.user = { id: 'dev-user' };
+    res.redirect('/admin/');
+  });
+
+  app.get('/admin/logout', (req, res) => {
+    req.session.destroy();
+    res.redirect('/admin/signin');
+  });
+
+  app.listen(uploaderConfig.port, options.host, () => {
+    console.log(`🚀 Muza Utils API ready at http://${options.host}:${uploaderConfig.port}`);
+  });
+
+  return app;
+
+}
+ 
+async function enhanceWithMusicBrainz(flacMetadata, mbClient, fileHandler, req) {
+  const enhanced = { ...flacMetadata };
+  
+  console.log(`Enhancing metadata with MusicBrainz for: ${flacMetadata.title || 'unknown'} by ${flacMetadata.artist || 'unknown'}`);
+
+  try {
+    let mbData = null;
+    
+    // Try to lookup by MusicBrainz ID first
+    if (flacMetadata.musicbrainzTrackId) {
+      mbData = await mbClient.lookupTrackById(flacMetadata.musicbrainzTrackId);
+    }
+    
+    // If no ID or lookup failed, try search
+    if (!mbData && flacMetadata.title && flacMetadata.artist) {
+      mbData = await mbClient.searchTrack(
+        flacMetadata.title,
+        flacMetadata.artist,
+        flacMetadata.album
+      );
+
+      
+    }
+    
+    console.log(`MusicBrainz data found: ${mbData !== null}`);
+    
+    // Merge MusicBrainz data (prefer FLAC data when available)
+    if (mbData) {
+      // Extract relevant data from MusicBrainz response
+      if (mbData.title && !enhanced.title) enhanced.title = mbData.title;
+      if (mbData['artist-credit'] && mbData['artist-credit'][0] && !enhanced.artist) {
+        enhanced.artist = mbData['artist-credit'][0].name;
+      }
+      if (mbData.releases && mbData.releases[0] && !enhanced.album) {
+        enhanced.album = mbData.releases[0].title;
+      }
+      if (mbData.id) enhanced.musicbrainzTrackId = mbData.id;
+      if (mbData.releases && mbData.releases[0] && mbData.releases[0].id) {
+        enhanced.musicbrainzAlbumId = mbData.releases[0].id;
+      }
+    }
+    
+    // Download album cover if we have album ID
+    const albumId = enhanced.musicbrainzAlbumId;
+    if (albumId && !enhanced.albumCover) {
+      const coverUrl = await mbClient.getAlbumCoverUrl(albumId);
+      
+      if (coverUrl) {
+        const coverPath = await fileHandler.downloadAlbumCover(
+          coverUrl,
+          enhanced.album || 'unknown'
+        );
+        if (coverPath) {
+          enhanced.albumCover = fileHandler.getFileUrl(
+            coverPath,
+            `${req.protocol}://${req.get('host')}/`
+          );
+        }
+      }
+    }
+    
+  } catch (error) {
+    console.error(`Error enhancing metadata with MusicBrainz: ${error.message}`);
+  }
+  
+  return enhanced;
+}
+
+module.exports = {
+  FileHandler,
+  MuzaClient,
+  createUploaderApp
+};

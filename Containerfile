@@ -1,60 +1,52 @@
 # Use Node.js official runtime as base image
 FROM node:18-alpine
 
-# Set working directory
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libpq-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a working directory
 WORKDIR /app
 
-# Install system dependencies for audio processing
-RUN apk add --no-cache \
-    ffmpeg \
-    python3 \
-    make \
-    g++ \
-    sqlite
+# Copy the package files first for better caching
+COPY setup.py .
+COPY requirements.txt .
+COPY README.md .
 
-# Copy package files
-COPY package.json package-lock.json* ./
+# Install the package and dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the application code
+COPY muza_metadata_server/ muza_metadata_server/
+COPY utils/ utils/
 
 # Install Node.js dependencies
 RUN npm ci --only=production
 
-# Copy application source code
-COPY src/ ./src/
-COPY data/ ./data/
-COPY downloads/ ./downloads/
+# Create data directory for uploads
+RUN mkdir -p /data/audio /data/images
 
-# Create directories for uploads and logs
-RUN mkdir -p /app/data/uploads /app/logs
+# Expose main API port (8000) and admin UI port (5002)
+EXPOSE 8000 5002
 
 # Set environment variables
-ENV NODE_ENV=production
-ENV PORT=3000
-ENV HOST=0.0.0.0
-ENV DB_DIALECT=sqlite
-ENV DB_STORAGE=/app/data/database.sqlite
+# PYTHONUNBUFFERED=1 ensures Python output is sent straight to terminal without buffering
+# good for log handling in containerized environments
+ENV PYTHONUNBUFFERED=1 \
+    PORT=8000 \
+    ADMIN_UI_PORT=5002 \
+    WORKERS=4 \
+    DEBUG=false \
+    HOOK_COMMAND="" \
+    AUDIO_UPLOAD_DIR=/data/audio \
+    IMAGE_UPLOAD_DIR=/data/images
 
-# Expose port
-EXPOSE 3000
+# Health check for the main API
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/ || exit 1
 
-# Create non-root user for security
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodeuser -u 1001
-
-# Change ownership of application files
-RUN chown -R nodeuser:nodejs /app
-
-# Switch to non-root user
-USER nodeuser
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "const http = require('http'); \
-    const options = { hostname: 'localhost', port: process.env.PORT || 3000, path: '/health', timeout: 2000 }; \
-    const req = http.request(options, (res) => { \
-      if (res.statusCode === 200) process.exit(0); else process.exit(1); \
-    }); \
-    req.on('error', () => process.exit(1)); \
-    req.end();"
-
-# Start the application
-CMD ["npm", "start"]
+# Default command using Gunicorn with config
+ENTRYPOINT ["./run.sh"]

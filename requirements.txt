@@ -6,8 +6,12 @@ graphql-core
 graphql-server
 black
 sqlalchemy
+psycopg2-binary  # For PostgreSQL RDS
+# pymysql         # Uncomment for MySQL RDS
 
 mutagen
 musicbrainzngs
 requests
 python-dotenv
+PyJWT
+boto3

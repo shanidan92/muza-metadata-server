@@ -10,6 +10,7 @@ A Flask API server for processing FLAC files and integrating with the Muza Metad
 - Download album covers from Cover Art Archive
 - Automatically insert tracks into Muza Metadata Server
 - Serve uploaded files and covers
+- Organized file storage with separate directories for audio and images
 
 ## Installation
 
@@ -22,7 +23,8 @@ pip install -r requirements.txt
 2. Set environment variables (optional):
 
 ```bash
-export UPLOAD_DIR=downloads
+export AUDIO_UPLOAD_DIR=downloads/audio
+export IMAGE_UPLOAD_DIR=downloads/images
 export MUZA_SERVER_URL=http://localhost:5000/graphql
 export PORT=5002
 export DEBUG=false
@@ -62,8 +64,8 @@ curl -X POST http://localhost:5002/upload \
     "artist_main": "The Beatles",
     "album_title": "The Beatles (White Album)",
     "year_released": 1968,
-    "album_cover": "http://localhost:5002/files/cover_the_beatles_white_album_uuid.jpg",
-    "song_file": "http://localhost:5002/files/uuid.flac"
+    "album_cover": "http://localhost:5002/files/images/cover_the_beatles_white_album_uuid.jpg",
+    "song_file": "http://localhost:5002/files/audio/uuid.flac"
   }
 }
 ```
@@ -87,9 +89,12 @@ Upload and process a FLAC file.
 - 413: File too large
 - 500: Server error
 
-### GET /files/{filename}
+### GET /files/{path}
 
 Serve uploaded files and album covers.
+
+- `/files/audio/{filename}` - Serve audio files
+- `/files/images/{filename}` - Serve image files
 
 ### GET /health
 
@@ -99,7 +104,8 @@ Health check endpoint.
 
 Environment variables:
 
-- `UPLOAD_DIR`: Directory for uploaded files (default: downloads)
+- `AUDIO_UPLOAD_DIR`: Directory for audio files (default: downloads/audio)
+- `IMAGE_UPLOAD_DIR`: Directory for image files (default: downloads/images)
 - `MUZA_SERVER_URL`: Muza Metadata Server GraphQL endpoint (default: <http://localhost:5000/graphql>)
 - `MUSICBRAINZ_APP_NAME`: App name for MusicBrainz API (default: MuzaUtils)
 - `MUSICBRAINZ_APP_VERSION`: App version for MusicBrainz API (default: 1.0)
@@ -107,15 +113,34 @@ Environment variables:
 - `PORT`: Server port (default: 5002)
 - `DEBUG`: Enable debug mode (default: false)
 
+## File Organization
+
+The server organizes uploaded files into separate directories:
+
+```
+downloads/
+├── audio/          # FLAC audio files
+│   ├── uuid1.flac
+│   └── uuid2.flac
+└── images/         # Album covers and images
+    ├── cover_album1_uuid.jpg
+    └── cover_album2_uuid.png
+```
+
+URLs reflect this structure:
+
+- Audio files: `http://localhost:5002/files/audio/uuid.flac`
+- Images: `http://localhost:5002/files/images/cover_album_uuid.jpg`
+
 ## Processing Flow
 
-1. **File Upload**: FLAC file is uploaded and saved to upload directory
+1. **File Upload**: FLAC file is uploaded and saved to audio directory
 2. **Metadata Extraction**: Extract tags from FLAC using Mutagen
 3. **MusicBrainz Enhancement**:
    - Lookup by MusicBrainz ID if present in tags
    - Search by title/artist if no ID
    - Merge additional metadata
-4. **Album Cover Download**: Download cover art if MusicBrainz release ID found
+4. **Album Cover Download**: Download cover art to image directory if MusicBrainz release ID found
 5. **Database Insert**: Create track in Muza Metadata Server via GraphQL
 6. **Response**: Return success with track data and metadata
 
@@ -133,7 +158,7 @@ The server respects MusicBrainz API rate limits (1 request per second).
 
 ## File Storage
 
-- Uploaded FLAC files are stored with UUID filenames
-- Album covers are downloaded and stored locally
-- Files are served via HTTP from `/files/` endpoint
-- File URLs are included in track metadata
+- Uploaded FLAC files are stored in the audio directory with UUID filenames
+- Album covers are downloaded and stored in the image directory
+- Files are served via HTTP from `/files/audio/` and `/files/images/` endpoints
+- File URLs are included in track metadata with correct paths

@@ -1,0 +1,52 @@
+# Admin UI Containerfile for Muza Metadata Server
+# This container runs ONLY the admin UI (uploader) service for VPN-only access
+
+# Use an official Python base image
+FROM python:3.12-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libpq-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a working directory
+WORKDIR /app
+
+# Copy the package files first for better caching
+COPY setup.py .
+COPY requirements.txt .
+COPY README.md .
+
+# Install the package and dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the utils directory (admin UI code)
+COPY utils/ utils/
+
+# Copy and make the admin UI run script executable
+COPY run-admin-ui.sh .
+RUN chmod +x run-admin-ui.sh
+
+# Create data directories for uploads
+RUN mkdir -p /data/audio /data/images
+
+# Expose admin UI port only
+EXPOSE 5002
+
+# Set environment variables for admin UI
+ENV PYTHONUNBUFFERED=1 \
+    PORT=5002 \
+    ADMIN_UI_PORT=5002 \
+    DEBUG=false \
+    AUDIO_UPLOAD_DIR=/data/audio \
+    IMAGE_UPLOAD_DIR=/data/images \
+    AWS_REGION=eu-west-1
+
+# Health check for the admin UI
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:5002/health || exit 1
+
+# Run the admin UI
+ENTRYPOINT ["./run-admin-ui.sh"]

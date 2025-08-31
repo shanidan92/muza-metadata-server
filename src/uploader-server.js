@@ -1,46 +1,36 @@
 #!/usr/bin/env node
 
-const NodeUploader = require('./uploader');
-const UploaderConfig = require('./uploader-config');
+const { createUploaderApp } = require('./uploader');
+const config = require('./config');
 
 async function main() {
-    try {
-        // Load configuration from environment variables
-        const config = UploaderConfig.fromEnv();
-        const configObj = config.getConfig();
-        
-        console.log('Starting Muza Utils API...');
-        console.log('Configuration:', configObj);
-        
-        // Create and start the uploader
-        const uploader = new NodeUploader(configObj);
-        uploader.start();
-        
-        // Handle graceful shutdown
-        process.on('SIGINT', () => {
-            console.log('\nReceived SIGINT, shutting down gracefully...');
-            process.exit(0);
-        });
-        
-        process.on('SIGTERM', () => {
-            console.log('\nReceived SIGTERM, shutting down gracefully...');
-            process.exit(0);
-        });
-        
-    } catch (error) {
-        console.error('Failed to start uploader:', error);
-        process.exit(1);
-    }
+  const uploaderConfig = {
+    audioUploadDir: config.uploader.audioUploadDir,
+    imageUploadDir: config.uploader.imageUploadDir,
+    s3AudioRawBucket: config.aws.s3AudioRawBucket,
+    s3CoverArtBucket: config.aws.s3CoverArtBucket,
+    cdnDomainName: config.aws.cdnDomainName,
+    awsRegion: config.aws.region,
+    secretKey: config.uploader.secretKey,
+    port: config.uploader.port,
+  };
+
+  const app = await createUploaderApp(uploaderConfig);
+
+  console.log(`Starting Muza Utils API on port ${uploaderConfig.port}`);
+  console.log(`Audio upload directory: ${uploaderConfig.audioUploadDir}`);
+  console.log(`Image upload directory: ${uploaderConfig.imageUploadDir}`);
+
+  app.listen(uploaderConfig.port, '0.0.0.0', () => {
+    console.log(`🚀 Muza Utils API ready at http://0.0.0.0:${uploaderConfig.port}`);
+  });
 }
 
-// Run the main function if this file is executed directly
 if (require.main === module) {
-    main().catch(error => {
-        console.error('Unhandled error:', error);
-        process.exit(1);
-    });
+  main().catch(error => {
+    console.error('Failed to start uploader server:', error);
+    process.exit(1);
+  });
 }
 
 module.exports = { main };
-
-
